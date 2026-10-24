@@ -36,11 +36,11 @@ export const Footer: React.FC = () => {
           {/* Brand & Description */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg overflow-hidden border border-[#c99738]/60 shadow-[0_0_15px_rgba(201,151,56,0.3)]">
+              <div className="w-12 h-12 rounded-xl overflow-hidden border border-[#c99738]/70 bg-black/90 shadow-[0_0_18px_rgba(59,130,246,0.35)]">
                 <img
-                  src={`${import.meta.env.BASE_URL}assets/artemis-crest.jpg`}
-                  alt="WYD Artemis Brasão"
-                  className="w-full h-full object-cover"
+                  src={`${import.meta.env.BASE_URL}assets/artemis-logo.jpg`}
+                  alt="WYD Artemis Logo Oficial"
+                  className="w-full h-full object-contain p-0.5"
                 />
               </div>
               <div>

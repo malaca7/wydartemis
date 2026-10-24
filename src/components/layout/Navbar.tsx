@@ -89,16 +89,15 @@ export const Navbar: React.FC = () => {
             {/* Logo Brand */}
             <Link
               to="/"
-              className="group flex items-center gap-3 focus:outline-none focus:ring-2 focus:ring-[#ffd978] rounded-lg p-1"
+              className="group flex items-center gap-3 focus:outline-none focus:ring-2 focus:ring-[#3b82f6] rounded-lg p-1"
               aria-label="WYD Artemis Início"
             >
-              <div className="relative w-10 h-10 md:w-11 md:h-11 rounded-lg overflow-hidden border border-[#c99738]/60 shadow-[0_0_15px_rgba(201,151,56,0.3)] transition-transform duration-300 group-hover:scale-105">
+              <div className="relative w-11 h-11 md:w-12 md:h-12 rounded-xl overflow-hidden border border-[#c99738]/70 bg-black/90 shadow-[0_0_16px_rgba(59,130,246,0.35),0_0_10px_rgba(201,151,56,0.3)] transition-transform duration-300 group-hover:scale-105 group-hover:border-[#60a5fa]">
                 <img
-                  src={`${import.meta.env.BASE_URL}assets/artemis-crest.jpg`}
-                  alt="WYD Artemis Brasão"
-                  className="w-full h-full object-cover"
+                  src={`${import.meta.env.BASE_URL}assets/artemis-logo.jpg`}
+                  alt="WYD Artemis Logo"
+                  className="w-full h-full object-contain p-0.5"
                 />
-                <div className="absolute inset-0 bg-gradient-to-tr from-black/40 via-transparent to-[#ffd978]/20" />
               </div>
 
               <div className="flex flex-col">
@@ -108,12 +107,12 @@ export const Navbar: React.FC = () => {
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 -mt-1">
-                  <span className="text-[10px] uppercase tracking-widest text-[#9d9482] font-semibold">
+                  <span className="text-[10px] uppercase tracking-widest text-[#93c5fd] font-semibold">
                     MMORPG Medieval
                   </span>
-                  <span className="h-1 w-1 rounded-full bg-[#c99738]" />
-                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-950/60 text-amber-300 border border-amber-700/40">
-                    Prévia
+                  <span className="h-1 w-1 rounded-full bg-[#3b82f6]" />
+                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-950/60 text-blue-300 border border-blue-700/40">
+                    Oficial
                   </span>
                 </div>
               </div>
@@ -201,11 +200,13 @@ export const Navbar: React.FC = () => {
               {/* Header inside drawer */}
               <div className="flex items-center justify-between pb-5 border-b border-neutral-800">
                 <div className="flex items-center gap-2.5">
-                  <img
-                    src={`${import.meta.env.BASE_URL}assets/artemis-crest.jpg`}
-                    alt="Crest"
-                    className="w-8 h-8 rounded border border-[#c99738]/50 object-cover"
-                  />
+                  <div className="w-10 h-10 rounded-xl overflow-hidden border border-[#c99738]/70 bg-black shadow-[0_0_12px_rgba(59,130,246,0.3)]">
+                    <img
+                      src={`${import.meta.env.BASE_URL}assets/artemis-logo.jpg`}
+                      alt="WYD Artemis Logo"
+                      className="w-full h-full object-contain p-0.5"
+                    />
+                  </div>
                   <span className="font-serif font-bold text-lg gold-gradient-text">
                     WYD ARTEMIS
                   </span>

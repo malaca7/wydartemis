@@ -32,13 +32,13 @@ export const PendingFeatureModal: React.FC = () => {
   const renderIcon = () => {
     switch (pendingModal.type) {
       case 'download':
-        return <Download className="w-8 h-8 text-amber-400" />;
+        return <Download className="w-3.5 h-3.5 text-amber-400" />;
       case 'auth':
-        return <Lock className="w-8 h-8 text-amber-400" />;
+        return <Lock className="w-3.5 h-3.5 text-amber-400" />;
       case 'external':
-        return <ExternalLink className="w-8 h-8 text-blue-400" />;
+        return <ExternalLink className="w-3.5 h-3.5 text-blue-400" />;
       default:
-        return <Info className="w-8 h-8 text-amber-400" />;
+        return <Info className="w-3.5 h-3.5 text-[#ffd978]" />;
     }
   };
 
@@ -68,15 +68,22 @@ export const PendingFeatureModal: React.FC = () => {
         <div className="p-6 md:p-8">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-lg bg-[#222837] border border-[#c99738]/30 shadow-inner">
-                {renderIcon()}
+              <div className="relative w-12 h-12 rounded-xl bg-black border border-[#c99738]/50 shadow-[0_0_15px_rgba(59,130,246,0.3)] flex items-center justify-center overflow-hidden shrink-0 p-0.5">
+                <img
+                  src={`${import.meta.env.BASE_URL}assets/artemis-logo.jpg`}
+                  alt="WYD Artemis Logo"
+                  className="w-full h-full object-contain"
+                />
+                <div className="absolute bottom-0 right-0 p-1 bg-black/85 rounded-tl border-t border-l border-[#c99738]/40">
+                  {renderIcon()}
+                </div>
               </div>
               <div>
-                <span className="text-xs font-semibold tracking-widest text-[#ffd978] uppercase flex items-center gap-1.5">
-                  <Sparkles className="w-3 h-3 text-[#ffd978]" />
-                  Aviso do Sistema
+                <span className="text-xs font-semibold tracking-widest text-[#93c5fd] uppercase flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3 text-[#60a5fa]" />
+                  Portal Oficial Artemis
                 </span>
-                <h3 id="modal-title" className="text-xl font-bold font-serif text-[#f4ecd8] tracking-wide">
+                <h3 id="modal-title" className="text-lg sm:text-xl font-bold font-serif text-[#f4ecd8] tracking-wide">
                   {pendingModal.title || 'Recurso em Configuração'}
                 </h3>
               </div>
