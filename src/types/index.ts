@@ -30,6 +30,7 @@ export interface CharacterRecord {
   name: string;
   characterClass: CharacterClass;
   level: number;
+  stage?: 'Mortal' | 'Arch' | 'Celestial' | 'Sub-Celestial';
   guild: string | null;
   score: number;
 }

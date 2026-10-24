@@ -154,25 +154,72 @@ export const DownloadPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Installation Instructions */}
-      <div className="medieval-panel rounded-xl p-6 border border-neutral-800 mb-8">
-        <h3 className="font-serif font-bold text-base text-[#f5efe2] mb-4">
-          Instruções de Instalação do Cliente
+      {/* Step-by-Step Installation Cards */}
+      <div className="medieval-panel rounded-2xl p-6 sm:p-8 border border-[#c99738]/40 mb-10 shadow-xl">
+        <h3 className="font-serif font-bold text-xl text-[#f5efe2] mb-6 flex items-center gap-2">
+          <ShieldCheck className="w-5 h-5 text-[#ffd978]" />
+          <span>Guia Passo a Passo de Instalação</span>
         </h3>
-        <ol className="space-y-2.5 text-xs text-[#a8a090] list-decimal list-inside leading-relaxed">
-          <li>Baixe o instalador oficial quando o link for divulgado pela administração.</li>
-          <li>Execute o instalador e escolha a pasta de destino de sua preferência.</li>
-          <li>Abra o lançador <code className="text-[#ffd978] bg-black/40 px-1 py-0.5 rounded">WYDArtemisLauncher.exe</code> como administrador.</li>
-          <li>Aguarde a verificação de arquivos e atualizações automáticas antes de iniciar.</li>
-        </ol>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="p-4 rounded-xl bg-[#0f131c] border border-neutral-800 space-y-2">
+            <span className="w-7 h-7 rounded-lg bg-[#c99738]/20 text-[#ffd978] border border-[#c99738]/50 inline-flex items-center justify-center text-xs font-serif font-bold">
+              1
+            </span>
+            <h4 className="font-serif font-bold text-sm text-[#ffd978]">Download & Extração</h4>
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              Baixe o instalador oficial. Recomendamos instalar em <code className="text-[#ffd978] bg-black/40 px-1 py-0.5 rounded">C:\WYD Artemis</code> para evitar bloqueios de permissão do Windows.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl bg-[#0f131c] border border-neutral-800 space-y-2">
+            <span className="w-7 h-7 rounded-lg bg-[#c99738]/20 text-[#ffd978] border border-[#c99738]/50 inline-flex items-center justify-center text-xs font-serif font-bold">
+              2
+            </span>
+            <h4 className="font-serif font-bold text-sm text-[#ffd978]">Modo Administrador</h4>
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              Clique com o botão direito em <code className="text-[#ffd978] bg-black/40 px-1 py-0.5 rounded">Launcher.exe</code> e marque "Executar como Administrador" para garantir atualização correta.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl bg-[#0f131c] border border-neutral-800 space-y-2">
+            <span className="w-7 h-7 rounded-lg bg-[#c99738]/20 text-[#ffd978] border border-[#c99738]/50 inline-flex items-center justify-center text-xs font-serif font-bold">
+              3
+            </span>
+            <h4 className="font-serif font-bold text-sm text-[#ffd978]">Configuração de Vídeo</h4>
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              Abra o <code className="text-[#ffd978] bg-black/40 px-1 py-0.5 rounded">Config.exe</code> para selecionar sua resolução nativa, modo janela ou tela cheia e profundidade de cor 32-bit.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl bg-[#0f131c] border border-neutral-800 space-y-2">
+            <span className="w-7 h-7 rounded-lg bg-[#c99738]/20 text-[#ffd978] border border-[#c99738]/50 inline-flex items-center justify-center text-xs font-serif font-bold">
+              4
+            </span>
+            <h4 className="font-serif font-bold text-sm text-[#ffd978]">Exceção do Antivírus</h4>
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              Adicione a pasta do jogo às exceções do Windows Defender caso o anti-cheat de proteção seja temporariamente sinalizado como falso positivo.
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Demonstrative Alert */}
-      <div className="p-4 rounded-xl bg-amber-950/20 border border-amber-800/40 text-amber-200/90 text-xs flex items-center gap-3">
-        <AlertTriangle className="w-5 h-5 shrink-0 text-amber-400" />
-        <p>
-          Aviso de segurança: Não baixe instaladores de fontes terceiras não oficiais. O link oficial será adicionado nesta página assim que for confirmado pela administração.
-        </p>
+      {/* Security & Support Banner */}
+      <div className="p-5 rounded-xl bg-amber-950/20 border border-amber-800/40 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 shrink-0 text-amber-400" />
+          <p className="text-amber-200/90 leading-relaxed">
+            <strong>Segurança Oficial:</strong> Nunca baixe executáveis de terceiros ou patches não verificados. Em caso de dúvidas técnicas na instalação, procure o suporte da nossa comunidade no Discord.
+          </p>
+        </div>
+        <a
+          href="https://discord.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-gold-primary px-4 py-2 rounded-lg font-serif font-bold shrink-0 text-center cursor-pointer shadow"
+        >
+          Canal de Suporte
+        </a>
       </div>
     </div>
   );

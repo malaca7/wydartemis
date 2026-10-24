@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MedievalDivider } from '../components/common/MedievalDivider';
 import { useModal } from '../hooks/useModal';
@@ -15,11 +15,16 @@ import {
   Sparkles,
   X,
   Layers,
+  Eye,
+  EyeOff,
+  CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { updateAccountPassword } from '../services/firebaseService';
 import { initialDemoProfile, mockAccountActivities } from '../data/playerData';
-import type { DemoPlayerProfile } from '../types';
+import type { DemoPlayerProfile, DemoCharacter } from '../types';
+import { sanitizeText, evaluatePasswordStrength } from '../utils/security';
+import { CharacterDetailModal } from '../components/player/CharacterDetailModal';
 
 export const PlayerAreaPage: React.FC = () => {
   const {
@@ -36,6 +41,9 @@ export const PlayerAreaPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [selectedCharacter, setSelectedCharacter] = useState<DemoCharacter | null>(null);
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formFeedback, setFormFeedback] = useState<string | null>(null);
@@ -44,6 +52,7 @@ export const PlayerAreaPage: React.FC = () => {
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const { openPendingModal } = useModal();
+  const passwordStrength = useMemo(() => evaluatePasswordStrength(password), [password]);
 
   const isUserAuthenticated = Boolean(currentUser || demoSession);
 
@@ -59,14 +68,15 @@ export const PlayerAreaPage: React.FC = () => {
     setFormFeedback(null);
 
     if (activeTab === 'login') {
-      if (!username.trim() || !password.trim()) {
+      const cleanUsername = sanitizeText(username.trim());
+      if (!cleanUsername || !password.trim()) {
         setFeedbackType('error');
         setFormFeedback('Por favor, informe o usuário e a senha.');
         return;
       }
       setIsSubmitting(true);
       try {
-        await login(username, password);
+        await login(cleanUsername, password);
         setFeedbackType('success');
         setFormFeedback('Autenticado com sucesso!');
       } catch (err: unknown) {
@@ -80,12 +90,14 @@ export const PlayerAreaPage: React.FC = () => {
     }
 
     if (activeTab === 'register') {
-      if (!username.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+      const cleanUsername = sanitizeText(username.trim());
+      const cleanEmail = sanitizeText(email.trim());
+      if (!cleanUsername || !cleanEmail || !password.trim() || !confirmPassword.trim()) {
         setFeedbackType('error');
         setFormFeedback('Todos os campos são obrigatórios para a criação de conta.');
         return;
       }
-      if (!email.includes('@') || !email.includes('.')) {
+      if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
         setFeedbackType('error');
         setFormFeedback('Por favor, insira um formato de e-mail válido.');
         return;
@@ -98,13 +110,13 @@ export const PlayerAreaPage: React.FC = () => {
 
       setIsSubmitting(true);
       try {
-        await register(username, email, password);
+        await register(cleanUsername, cleanEmail, password);
         setFeedbackType('success');
         setFormFeedback('Conta registrada com sucesso! Seus personagens iniciais já estão disponíveis.');
         openPendingModal({
           title: 'Conta Criada com Sucesso!',
           featureName: 'Área do Guerreiro Artemis',
-          description: `Parabéns ${username}! Sua conta foi cadastrada e seus personagens iniciais foram vinculados com sucesso. Bem-vindo ao universo sagrado de Artemis!`,
+          description: `Parabéns ${cleanUsername}! Sua conta foi cadastrada e seus personagens iniciais foram vinculados com sucesso. Bem-vindo ao universo sagrado de Artemis!`,
           type: 'auth',
         });
       } catch (err: unknown) {
@@ -118,7 +130,8 @@ export const PlayerAreaPage: React.FC = () => {
     }
 
     if (activeTab === 'recovery') {
-      if (!email.trim() || !email.includes('@')) {
+      const cleanEmail = sanitizeText(email.trim());
+      if (!cleanEmail || !cleanEmail.includes('@')) {
         setFeedbackType('error');
         setFormFeedback('Informe um e-mail válido para a recuperação.');
         return;
@@ -126,13 +139,13 @@ export const PlayerAreaPage: React.FC = () => {
 
       setIsSubmitting(true);
       try {
-        await resetPassword(email);
+        await resetPassword(cleanEmail);
         setFeedbackType('success');
         setFormFeedback('E-mail oficial de redefinição de senha enviado com sucesso pelo Firebase Auth!');
         openPendingModal({
           title: 'Instruções Enviadas',
           featureName: 'Recuperação por E-mail (Firebase)',
-          description: `Um e-mail foi disparado para ${email} com o link oficial para redefinição de senha.`,
+          description: `Um e-mail foi disparado para ${cleanEmail} com o link oficial para redefinição de senha.`,
           type: 'auth',
         });
       } catch (err: unknown) {
@@ -354,17 +367,11 @@ export const PlayerAreaPage: React.FC = () => {
                   <div className="pt-3 border-t border-neutral-800/80 flex items-center justify-between text-xs">
                     <span className="text-[11px] text-neutral-400">Reino Artemis</span>
                     <button
-                      onClick={() =>
-                        openPendingModal({
-                          title: `Inventário de ${char.name}`,
-                          featureName: 'Gestão de Inventário Web',
-                          description: 'O baú web e transferência de itens entre personagens será implementado na central de serviços.',
-                          type: 'general',
-                        })
-                      }
-                      className="text-xs text-[#ffd978] hover:text-[#fff0ba] cursor-pointer"
+                      onClick={() => setSelectedCharacter(char)}
+                      className="text-xs text-[#ffd978] hover:text-[#fff0ba] cursor-pointer font-serif flex items-center gap-1 transition-colors"
                     >
-                      Ver Detalhes
+                      <span>Ver Atributos</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-[#ffd978]" />
                     </button>
                   </div>
                 </div>
@@ -516,14 +523,55 @@ export const PlayerAreaPage: React.FC = () => {
                 <div className="relative">
                   <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[#11141c] border border-neutral-800 text-xs text-[#ede3cc] focus:outline-none focus:border-[#c99738] placeholder-neutral-500"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-lg bg-[#11141c] border border-neutral-800 text-xs text-[#ede3cc] focus:outline-none focus:border-[#c99738] placeholder-neutral-500 font-sans"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-[#ffd978] transition-colors cursor-pointer"
+                    title={showPassword ? 'Ocultar senha' : 'Exibir senha'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
+
+                {activeTab === 'register' && password.length > 0 && (
+                  <div className="mt-2 p-2 rounded bg-[#0b0e14] border border-neutral-800 text-xs space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-neutral-400">Força da Senha:</span>
+                      <span className={`font-bold ${
+                        passwordStrength.label === 'Forte'
+                          ? 'text-emerald-400'
+                          : passwordStrength.label === 'Média'
+                          ? 'text-amber-400'
+                          : 'text-red-400'
+                      }`}>
+                        {passwordStrength.label}
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden flex gap-1">
+                      <div className={`h-full flex-1 rounded-full ${passwordStrength.color}`} />
+                      <div className={`h-full flex-1 rounded-full ${passwordStrength.score >= 1 ? passwordStrength.color : 'bg-neutral-800'}`} />
+                      <div className={`h-full flex-1 rounded-full ${passwordStrength.score >= 2 ? passwordStrength.color : 'bg-neutral-800'}`} />
+                    </div>
+                    <div className="flex items-center gap-3 text-[10px] text-neutral-400 pt-0.5">
+                      <span className={passwordStrength.hasMinLength ? 'text-emerald-400' : 'text-neutral-500'}>
+                        ✓ 6+ dígitos
+                      </span>
+                      <span className={passwordStrength.hasLetter ? 'text-emerald-400' : 'text-neutral-500'}>
+                        ✓ Letras
+                      </span>
+                      <span className={passwordStrength.hasNumber ? 'text-emerald-400' : 'text-neutral-500'}>
+                        ✓ Números
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -535,14 +583,38 @@ export const PlayerAreaPage: React.FC = () => {
                 <div className="relative">
                   <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
                   <input
-                    type="password"
+                    type={showConfirmPassword ? 'text' : 'password'}
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[#11141c] border border-neutral-800 text-xs text-[#ede3cc] focus:outline-none focus:border-[#c99738] placeholder-neutral-500"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-lg bg-[#11141c] border border-neutral-800 text-xs text-[#ede3cc] focus:outline-none focus:border-[#c99738] placeholder-neutral-500 font-sans"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-[#ffd978] transition-colors cursor-pointer"
+                    title={showConfirmPassword ? 'Ocultar senha' : 'Exibir senha'}
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
+
+                {confirmPassword.length > 0 && (
+                  <div className="mt-1 flex items-center gap-1.5 text-[11px]">
+                    {password === confirmPassword ? (
+                      <span className="text-emerald-400 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Senhas conferem
+                      </span>
+                    ) : (
+                      <span className="text-amber-400 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        Senhas não coincidem
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -622,6 +694,12 @@ export const PlayerAreaPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Character Details Modal */}
+      <CharacterDetailModal
+        character={selectedCharacter}
+        onClose={() => setSelectedCharacter(null)}
+      />
     </div>
   );
 };

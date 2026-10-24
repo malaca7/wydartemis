@@ -19,6 +19,8 @@ import {
   Filter,
   X,
   ExternalLink,
+  Download,
+  Upload,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import type { BannerSlide, SlideStatus } from '../types';
@@ -32,6 +34,7 @@ import {
   clearAdminPasskey,
 } from '../services/slidesService';
 import { initialDefaultSlides } from '../data/slidesData';
+import { exportSystemBackup, restoreSystemBackup } from '../services/backupService';
 import { SlideEditModal } from '../components/admin/SlideEditModal';
 import { SlidePreviewModal } from '../components/admin/SlidePreviewModal';
 
@@ -239,6 +242,36 @@ export const AdminSlidesPage: React.FC = () => {
     }
   };
 
+  const handleExportBackup = async () => {
+    try {
+      await exportSystemBackup();
+      setFeedback({ message: 'Backup JSON do sistema exportado com sucesso!', type: 'success' });
+    } catch {
+      setFeedback({ message: 'Falha ao exportar arquivo de backup.', type: 'error' });
+    }
+  };
+
+  const handleFileRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const result = await restoreSystemBackup(file);
+      if (result.success) {
+        setFeedback({ message: result.message, type: 'success' });
+        const reloaded = await fetchSlides();
+        setSlides(reloaded);
+      } else {
+        setFeedback({ message: result.message, type: 'error' });
+      }
+    } catch (err: unknown) {
+      setFeedback({
+        message: err instanceof Error ? err.message : 'Erro ao processar backup.',
+        type: 'error',
+      });
+    }
+    e.target.value = '';
+  };
+
   // Se não estiver autorizado como admin, exibe formulário de acesso
   if (!isAdminAuthorized) {
     return (
@@ -340,19 +373,42 @@ export const AdminSlidesPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={handleExportBackup}
+            className="btn-medieval-secondary px-3.5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
+            title="Exportar backup completo do sistema em formato JSON"
+          >
+            <Download className="w-3.5 h-3.5 text-[#ffd978]" />
+            <span className="hidden sm:inline">Exportar Backup</span>
+          </button>
+
+          <label
+            className="btn-medieval-secondary px-3.5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
+            title="Restaurar backup a partir de arquivo JSON"
+          >
+            <Upload className="w-3.5 h-3.5 text-[#ffd978]" />
+            <span className="hidden sm:inline">Restaurar JSON</span>
+            <input
+              type="file"
+              accept=".json"
+              className="hidden"
+              onChange={handleFileRestore}
+            />
+          </label>
+
           <button
             onClick={handleResetToOfficialPresets}
-            className="btn-medieval-secondary px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 cursor-pointer"
+            className="btn-medieval-secondary px-3.5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
             title="Restaura os 5 banners medievais originais"
           >
             <RefreshCw className="w-3.5 h-3.5 text-[#ffd978]" />
-            <span className="hidden sm:inline">Restaurar 5 Banners Oficiais</span>
+            <span className="hidden md:inline">Restaurar 5 Banners</span>
           </button>
 
           <button
             onClick={handleCreateNew}
-            className="btn-gold-primary px-5 py-2.5 rounded-xl text-xs sm:text-sm font-serif font-bold flex items-center gap-2 shadow-[0_4px_20px_rgba(201,151,56,0.35)] cursor-pointer"
+            className="btn-gold-primary px-4 py-2.5 rounded-xl text-xs sm:text-sm font-serif font-bold flex items-center gap-2 shadow-[0_4px_20px_rgba(201,151,56,0.35)] cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Novo Slide</span>

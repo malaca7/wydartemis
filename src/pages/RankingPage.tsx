@@ -9,6 +9,8 @@ import {
   ChevronLeft,
   ArrowUpDown,
   Users,
+  RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 import {
   mockCharacters,
@@ -26,6 +28,9 @@ export const RankingPage: React.FC = () => {
   const [characters, setCharacters] = useState<CharacterRecord[]>(mockCharacters);
   const [guilds, setGuilds] = useState<GuildRecord[]>(mockGuilds);
   const [isFirebaseSynced, setIsFirebaseSynced] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<string>('Tempo Real');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState<CharacterClass | 'All'>('All');
   const [characterSort, setCharacterSort] = useState<'score' | 'level' | 'name'>('score');
@@ -43,13 +48,38 @@ export const RankingPage: React.FC = () => {
           if (chars.length > 0) setCharacters(chars);
           if (glds.length > 0) setGuilds(glds);
           setIsFirebaseSynced(true);
+          setLastSyncTime(new Date().toLocaleTimeString('pt-BR'));
+          setSyncError(null);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (isMounted) {
+          setSyncError('Não foi possível carregar os dados mais recentes do ranking.');
+        }
+      });
     return () => {
       isMounted = false;
     };
   }, []);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const [chars, glds] = await Promise.all([
+        fetchCharactersFromFirestore(),
+        fetchGuildsFromFirestore(),
+      ]);
+      if (chars.length > 0) setCharacters(chars);
+      if (glds.length > 0) setGuilds(glds);
+      setIsFirebaseSynced(true);
+      setLastSyncTime(new Date().toLocaleTimeString('pt-BR'));
+      setSyncError(null);
+    } catch {
+      setSyncError('Não foi possível carregar os dados mais recentes do ranking.');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const classes: Array<{ id: CharacterClass | 'All'; label: string }> = [
     { id: 'All', label: 'Todas as Classes' },
@@ -149,21 +179,45 @@ export const RankingPage: React.FC = () => {
         <MedievalDivider variant="gold" className="my-6" />
       </div>
 
-      {/* Demonstrative Alert Banner with Firebase Status */}
-      <div className="mb-8 p-4 rounded-xl bg-[#0e121a] border border-[#c99738]/30 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Alert Banner with Firebase Status, Refresh & Timestamp */}
+      <div className="mb-8 p-4 rounded-xl bg-[#0e121a] border border-[#c99738]/30 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <AlertCircle className="w-5 h-5 shrink-0 text-[#c99738]" />
-          <p className="text-[#c5bcab]">
-            <strong className="text-[#ffd978]">Ranking de Honra:</strong> Registros sincronizados com a base de dados do ecossistema Artemis.
-          </p>
+          <div>
+            <p className="text-[#c5bcab]">
+              <strong className="text-[#ffd978]">Ranking de Honra:</strong> Registros sincronizados com o cluster Artemis via Firestore.
+            </p>
+            <span className="text-[11px] text-neutral-400 font-mono">
+              Última atualização: {lastSyncTime}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 bg-[#141924] px-3 py-1.5 rounded-lg border border-neutral-800">
-          <span className={`w-2 h-2 rounded-full ${isFirebaseSynced ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-          <span className="text-[11px] font-mono text-emerald-300">
-            {isFirebaseSynced ? 'Firebase Firestore Conectado' : 'Conectando ao Firebase...'}
-          </span>
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+          <div className="flex items-center gap-2 bg-[#141924] px-3 py-1.5 rounded-lg border border-neutral-800">
+            <span className={`w-2 h-2 rounded-full ${isFirebaseSynced ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+            <span className="text-[11px] font-mono text-emerald-300">
+              {isFirebaseSynced ? 'Firestore Conectado' : 'Conectando ao Firebase...'}
+            </span>
+          </div>
+
+          <button
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="p-1.5 px-3 rounded-lg bg-[#141824] hover:bg-[#1a2030] border border-[#c99738]/40 text-[#ffd978] text-xs flex items-center gap-1.5 font-serif font-bold cursor-pointer transition-all shadow disabled:opacity-50"
+            title="Atualizar rankings agora"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Atualizando...' : 'Atualizar'}</span>
+          </button>
         </div>
       </div>
+
+      {syncError && (
+        <div className="mb-6 p-3 rounded-lg bg-red-950/40 border border-red-800/50 text-xs text-red-200 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+          <span>{syncError}</span>
+        </div>
+      )}
 
       {/* Tab Switcher & Search Bar */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-6">
@@ -288,6 +342,7 @@ export const RankingPage: React.FC = () => {
                 <tr>
                   <th className="py-4 px-6 text-center w-20">Posição</th>
                   <th className="py-4 px-6">Personagem</th>
+                  <th className="py-4 px-6">Evolução</th>
                   <th className="py-4 px-6">Classe</th>
                   <th className="py-4 px-6">Nível</th>
                   <th className="py-4 px-6">Guilda</th>
@@ -297,50 +352,64 @@ export const RankingPage: React.FC = () => {
               <tbody className="divide-y divide-neutral-800/80 text-xs">
                 {paginatedCharacters.items.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-[#8c8475]">
+                    <td colSpan={7} className="py-8 text-center text-[#8c8475]">
                       Nenhum personagem encontrado com os filtros selecionados.
                     </td>
                   </tr>
                 ) : (
-                  paginatedCharacters.items.map((char) => (
-                    <tr key={char.id} className="hover:bg-[#1a202d]/60 transition-colors">
-                      <td className="py-4 px-6 text-center font-bold">
-                        {char.position === 1 && (
-                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500 font-serif font-bold">
-                            1
+                  paginatedCharacters.items.map((char) => {
+                    const stage = char.stage || (char.level >= 355 ? 'Arch' : 'Mortal');
+                    return (
+                      <tr key={char.id} className="hover:bg-[#1a202d]/60 transition-colors">
+                        <td className="py-4 px-6 text-center font-bold">
+                          {char.position === 1 && (
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500 font-serif font-bold">
+                              1
+                            </span>
+                          )}
+                          {char.position === 2 && (
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-400/20 text-slate-300 border border-slate-400 font-serif font-bold">
+                              2
+                            </span>
+                          )}
+                          {char.position === 3 && (
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-800/20 text-amber-600 border border-amber-700 font-serif font-bold">
+                              3
+                            </span>
+                          )}
+                          {char.position > 3 && <span className="text-[#8c8577]">{char.position}</span>}
+                        </td>
+                        <td className="py-4 px-6 font-serif font-bold text-[#f5efe2]">
+                          {char.name}
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                            stage === 'Celestial' || stage === 'Sub-Celestial'
+                              ? 'bg-purple-950/60 text-purple-300 border-purple-800/40'
+                              : stage === 'Arch'
+                              ? 'bg-blue-950/60 text-blue-300 border-blue-800/40'
+                              : 'bg-amber-950/60 text-amber-300 border-amber-800/40'
+                          }`}>
+                            {stage}
                           </span>
-                        )}
-                        {char.position === 2 && (
-                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-400/20 text-slate-300 border border-slate-400 font-serif font-bold">
-                            2
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#131722] border border-[#c99738]/30 text-[#ffd978]">
+                            {char.characterClass}
                           </span>
-                        )}
-                        {char.position === 3 && (
-                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-800/20 text-amber-600 border border-amber-700 font-serif font-bold">
-                            3
-                          </span>
-                        )}
-                        {char.position > 3 && <span className="text-[#8c8577]">{char.position}</span>}
-                      </td>
-                      <td className="py-4 px-6 font-serif font-bold text-[#f5efe2]">
-                        {char.name}
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#131722] border border-[#c99738]/30 text-[#ffd978]">
-                          {char.characterClass}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6 font-mono text-[#c5bcab]">
-                        {char.level}
-                      </td>
-                      <td className="py-4 px-6 text-[#a8a090]">
-                        {char.guild || <span className="text-neutral-600 italic">Sem Guilda</span>}
-                      </td>
-                      <td className="py-4 px-6 text-right font-mono font-bold text-[#ffd978]">
-                        {char.score.toLocaleString('pt-BR')} pts
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="py-4 px-6 font-mono text-[#c5bcab]">
+                          {char.level}
+                        </td>
+                        <td className="py-4 px-6 text-[#a8a090]">
+                          {char.guild || <span className="text-neutral-600 italic">Sem Guilda</span>}
+                        </td>
+                        <td className="py-4 px-6 text-right font-mono font-bold text-[#ffd978]">
+                          {char.score.toLocaleString('pt-BR')} pts
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -535,6 +604,19 @@ export const RankingPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Ranking Architecture & Rules Box */}
+      <div className="mt-8 p-4 rounded-xl bg-[#0b0e14] border border-[#c99738]/30 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-neutral-400">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-[#ffd978] shrink-0" />
+          <span>
+            <strong>Critérios de Pontuação:</strong> Nível, evolução de classe, histórico de PK/PvP e conquistas de guilda nos castelos de Noatun e Erion.
+          </span>
+        </div>
+        <span className="text-[11px] font-mono text-[#c99738] shrink-0">
+          Cluster: Artemis-BR01
+        </span>
+      </div>
     </div>
   );
 };

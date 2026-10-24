@@ -10,6 +10,9 @@ import {
   Info,
   Layers,
   Cpu,
+  RefreshCw,
+  AlertTriangle,
+  Network,
 } from 'lucide-react';
 import {
   initialServerStatus,
@@ -17,6 +20,7 @@ import {
   serverSpecifications,
 } from '../data/serverStatusData';
 import {
+  fetchServerStatus,
   subscribeServerStatus,
   updateServerStatusInFirestore,
 } from '../services/firebaseService';
@@ -26,22 +30,43 @@ export const ServerStatusPage: React.FC = () => {
   const [currentSnapshot, setCurrentSnapshot] = useState<ServerStatusSnapshot>(initialServerStatus);
   const [selectedState, setSelectedState] = useState<ServerState>(initialServerStatus.state);
   const [isFirebaseConnected, setIsFirebaseConnected] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastCheckTime, setLastCheckTime] = useState<string>('Tempo Real');
 
   React.useEffect(() => {
     const unsub = subscribeServerStatus((snapshot) => {
       setCurrentSnapshot(snapshot);
       setSelectedState(snapshot.state);
       setIsFirebaseConnected(true);
+      setLastCheckTime(new Date().toLocaleTimeString('pt-BR'));
+      setSyncError(null);
     });
     return () => unsub();
   }, []);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    setSyncError(null);
+    try {
+      const snap = await fetchServerStatus();
+      setCurrentSnapshot(snap);
+      setSelectedState(snap.state);
+      setLastCheckTime(new Date().toLocaleTimeString('pt-BR'));
+    } catch (err) {
+      setSyncError('Falha temporária ao sincronizar com o Firestore.');
+      console.warn('Erro ao atualizar manualmente:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleStateChange = async (st: ServerState) => {
     setSelectedState(st);
     try {
       await updateServerStatusInFirestore({
         state: st,
-        onlinePlayers: st === 'online' ? 248 : st === 'maintenance' ? 0 : null,
+        onlinePlayers: st === 'offline' || st === 'maintenance' ? 0 : currentSnapshot.onlinePlayers ?? 0,
       });
     } catch (e) {
       console.warn('Erro ao atualizar status no Firestore:', e);
@@ -98,20 +123,39 @@ export const ServerStatusPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Firestore Telemetry Status Box */}
-          <div className="w-full lg:w-auto p-4 rounded-xl bg-[#0b0e14] border border-[#c99738]/30 flex flex-col gap-1 text-xs shadow-inner">
-            <span className="text-[10px] text-neutral-400 uppercase font-semibold">Base de Dados</span>
-            <div className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${isFirebaseConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-              <span className="text-emerald-300 font-medium">
-                {isFirebaseConnected ? 'Firebase Firestore Conectado' : 'Conectando ao Firestore...'}
+          {/* Firestore Telemetry Status Box & Refresh */}
+          <div className="w-full lg:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="p-4 rounded-xl bg-[#0b0e14] border border-[#c99738]/30 flex flex-col gap-1 text-xs shadow-inner min-w-[220px]">
+              <span className="text-[10px] text-neutral-400 uppercase font-semibold">Base de Dados</span>
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${isFirebaseConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                <span className="text-emerald-300 font-medium">
+                  {isFirebaseConnected ? 'Firebase Firestore Conectado' : 'Conectando ao Firestore...'}
+                </span>
+              </div>
+              <span className="text-[11px] text-neutral-500 pt-1 font-mono">
+                Doc: server_status/current
               </span>
             </div>
-            <span className="text-[11px] text-neutral-500 pt-1 font-mono">
-              Doc: server_status/current
-            </span>
+
+            <button
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              className="p-4 rounded-xl bg-[#141824] hover:bg-[#1a2030] border border-[#c99738]/40 text-[#ffd978] text-xs flex items-center justify-center gap-2 font-serif font-bold cursor-pointer transition-all shadow hover:shadow-gold disabled:opacity-50"
+              title="Solicitar atualização imediata da telemetria"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[#ffd978]' : ''}`} />
+              <span>{isRefreshing ? 'Consultando...' : 'Atualizar'}</span>
+            </button>
           </div>
         </div>
+
+        {syncError && (
+          <div className="mt-4 p-3 rounded-lg bg-red-950/40 border border-red-800/50 text-xs text-red-200 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+            <span>{syncError}</span>
+          </div>
+        )}
 
         {/* 4 Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-8">
@@ -256,9 +300,73 @@ export const ServerStatusPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="pt-4 border-t border-neutral-800 mt-6 flex items-center gap-2 text-xs text-[#8c8475]">
-            <Info className="w-4 h-4 text-[#c99738] shrink-0" />
-            <span>Dados de arquitetura demonstrativos.</span>
+          <div className="pt-4 border-t border-neutral-800 mt-6 flex items-center justify-between text-xs text-[#8c8475]">
+            <div className="flex items-center gap-2">
+              <Info className="w-4 h-4 text-[#c99738] shrink-0" />
+              <span>Última verificação: {lastCheckTime}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Integration & Network Topology Documentation */}
+      <div className="medieval-panel rounded-2xl p-6 sm:p-8 border border-[#c99738]/40 mb-8 shadow-xl">
+        <div className="flex items-center gap-3 pb-4 mb-6 border-b border-neutral-800">
+          <Network className="w-6 h-6 text-[#ffd978]" />
+          <div>
+            <h3 className="font-serif font-bold text-xl text-[#f5efe2]">
+              Topologia de Integrações do Servidor
+            </h3>
+            <p className="text-xs text-[#9c9484]">
+              Conectores oficiais entre a infraestrutura do jogo e a plataforma web
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 rounded-xl bg-[#0f131c] border border-neutral-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-serif font-bold text-[#ffd978]">TMSRV (Game Server)</span>
+              <span className="px-2 py-0.5 rounded text-[10px] bg-blue-950/60 text-blue-300 border border-blue-800/40">
+                Porta 7514 TCP
+              </span>
+            </div>
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              Mundo do jogo, monstros, drop e combate. A sincronização de jogadores online é transmitida via daemon de telemetria para o broker em tempo real.
+            </p>
+            <div className="text-[11px] text-[#c99738] font-mono pt-1">
+              • Protocolo: Socket Binário WYD
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-[#0f131c] border border-neutral-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-serif font-bold text-[#ffd978]">DBSrv (Base Central)</span>
+              <span className="px-2 py-0.5 rounded text-[10px] bg-purple-950/60 text-purple-300 border border-purple-800/40">
+                Porta 15400 TCP
+              </span>
+            </div>
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              Base de dados oficial de contas e inventários. O acesso web ocorre exclusivamente através de middleware seguro e autenticado em rede privada.
+            </p>
+            <div className="text-[11px] text-[#c99738] font-mono pt-1">
+              • Segurança: Rede Isolada (VPC)
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-[#0f131c] border border-neutral-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-serif font-bold text-[#ffd978]">Firestore Cloud Broker</span>
+              <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-950/60 text-emerald-300 border border-emerald-800/40">
+                server_status/current
+              </span>
+            </div>
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              Distribuição global em tempo real dos status de conexão para os navegadores sem onerar os sockets nativos do jogo.
+            </p>
+            <div className="text-[11px] text-emerald-400 font-mono pt-1">
+              • Status: Operacional e Conectado
+            </div>
           </div>
         </div>
       </div>

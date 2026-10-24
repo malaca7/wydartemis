@@ -19,6 +19,12 @@ import {
 } from '../data/serverStatusData.ts';
 
 import { communityLinks } from '../config/site.ts';
+import {
+  sanitizeText,
+  sanitizeUrl,
+  evaluatePasswordStrength,
+  hashPassword,
+} from '../utils/security.ts';
 
 test('Ranking: sorts characters by score descending by default', () => {
   const ranked = getRankedCharacters();
@@ -278,4 +284,45 @@ test('Carousel: validateSlide catches invalid input and approves valid payload',
   });
   assert.equal(Object.keys(valid).length, 0);
 });
+
+test('Security: sanitizeText removes HTML tags and harmful characters', () => {
+  const dirtyInput = '<script>alert("xss")</script>Guerreiro<b>Mortal</b>';
+  const clean = sanitizeText(dirtyInput);
+  assert.equal(clean, 'alert("xss")GuerreiroMortal');
+});
+
+test('Security: sanitizeUrl rejects malicious schemes and accepts safe URLs and routes', () => {
+  assert.equal(sanitizeUrl('javascript:alert(1)'), null);
+  assert.equal(sanitizeUrl('vbscript:msgbox(1)'), null);
+  assert.equal(sanitizeUrl('data:text/html,hack'), null);
+  assert.equal(sanitizeUrl('/area-jogador'), '/area-jogador');
+  assert.equal(sanitizeUrl('https://wydartemis.com/noticias'), 'https://wydartemis.com/noticias');
+});
+
+test('Security: evaluatePasswordStrength rates weak, medium and strong correctly', () => {
+  // Less than 6 chars
+  const weak = evaluatePasswordStrength('123');
+  assert.equal(weak.label, 'Fraca');
+  assert.equal(weak.hasMinLength, false);
+
+  // 6+ chars but only letters
+  const medium = evaluatePasswordStrength('senhaforte');
+  assert.equal(medium.label, 'Média');
+  assert.equal(medium.hasMinLength, true);
+
+  // 8+ chars with letters, numbers and special symbols
+  const strong = evaluatePasswordStrength('Artemis#2026');
+  assert.equal(strong.label, 'Forte');
+  assert.equal(strong.score, 2);
+});
+
+test('Security: hashPassword produces hashed output without plaintext leakage', async () => {
+  const password = 'MinhaSenhaSecreta123';
+  const hash = await hashPassword(password);
+
+  assert.ok(hash);
+  assert.notEqual(hash, password);
+  assert.ok(typeof hash === 'string');
+});
+
 
