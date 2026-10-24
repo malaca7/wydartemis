@@ -1,0 +1,217 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: 'Cinzel', Georgia, serif;
+  --font-display: 'Cinzel Decorative', 'Cinzel', serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+
+  --color-artemis-gold: #c99738;
+  --color-artemis-gold-light: #fce29d;
+  --color-artemis-gold-dark: #8c631b;
+  --color-artemis-bronze: #9a6338;
+  --color-artemis-parchment: #ede3cc;
+  --color-artemis-parchment-muted: #9e9787;
+  --color-artemis-iron: #1c212b;
+  --color-artemis-iron-light: #2b3240;
+  --color-artemis-iron-border: #384255;
+  --color-artemis-charcoal: #090b0f;
+  --color-artemis-charcoal-card: #0e1219;
+  --color-artemis-arcane: #3b82f6;
+  --color-artemis-arcane-glow: #60a5fa;
+  --color-artemis-crimson: #991b1b;
+}
+
+@layer base {
+  * {
+    border-color: rgba(201, 151, 56, 0.15);
+  }
+
+  body {
+    background-color: #07080c;
+    color: #ede3cc;
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3, h4, .font-cinzel {
+    font-family: var(--font-serif);
+    letter-spacing: 0.03em;
+  }
+
+  .font-display {
+    font-family: var(--font-display);
+  }
+}
+
+/* Custom Medieval Utility Styles */
+.gold-gradient-text {
+  background: linear-gradient(135deg, #fff2cc 0%, #ffd066 30%, #d49b29 70%, #9c6c13 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.arcane-gradient-text {
+  background: linear-gradient(135deg, #e0f2fe 0%, #93c5fd 40%, #3b82f6 80%, #1d4ed8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.crimson-gradient-text {
+  background: linear-gradient(135deg, #fecaca 0%, #f87171 40%, #dc2626 80%, #991b1b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.medieval-panel {
+  background: radial-gradient(circle at 50% 0%, rgba(33, 41, 54, 0.75) 0%, rgba(13, 16, 22, 0.95) 100%);
+  border: 1px solid rgba(201, 151, 56, 0.25);
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.8), inset 0 1px 0 0 rgba(255, 230, 160, 0.12);
+}
+
+.medieval-panel-interactive {
+  background: radial-gradient(circle at 50% 0%, rgba(33, 41, 54, 0.7) 0%, rgba(13, 16, 22, 0.92) 100%);
+  border: 1px solid rgba(201, 151, 56, 0.2);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 230, 160, 0.08);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.medieval-panel-interactive:hover {
+  border-color: rgba(201, 151, 56, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.85), 0 0 20px rgba(201, 151, 56, 0.15), inset 0 1px 0 0 rgba(255, 230, 160, 0.25);
+}
+
+/* Medieval Button Styles */
+.btn-gold-primary {
+  background: linear-gradient(180deg, #dfa93e 0%, #b88122 50%, #875b11 100%);
+  color: #0d0f14;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid #ffd875;
+  box-shadow: 0 4px 18px rgba(201, 151, 56, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.6);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-gold-primary:hover {
+  background: linear-gradient(180deg, #eed060 0%, #c9932d 50%, #9e6d19 100%);
+  box-shadow: 0 6px 25px rgba(201, 151, 56, 0.65), inset 0 1px 2px rgba(255, 255, 255, 0.8);
+  transform: translateY(-1px);
+}
+
+.btn-gold-primary:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 10px rgba(201, 151, 56, 0.4);
+}
+
+.btn-medieval-secondary {
+  background: rgba(18, 22, 30, 0.85);
+  backdrop-filter: blur(8px);
+  color: #f1ebd8;
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid rgba(201, 151, 56, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-medieval-secondary:hover {
+  background: rgba(30, 36, 48, 0.95);
+  border-color: rgba(201, 151, 56, 0.7);
+  color: #ffd978;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7), 0 0 15px rgba(201, 151, 56, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Atmospheric animations */
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 5s ease-in-out infinite;
+}
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-float-slow {
+  animation: floatSlow 6s ease-in-out infinite;
+}
+
+/* Subtle Runes Glow */
+.glow-gold {
+  filter: drop-shadow(0 0 8px rgba(201, 151, 56, 0.6));
+}
+
+.glow-arcane {
+  filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.7));
+}
+
+/* Corner ornament accents */
+.ornament-corner-tl {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  border-top: 2px solid #c99738;
+  border-left: 2px solid #c99738;
+}
+
+.ornament-corner-tr {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  border-top: 2px solid #c99738;
+  border-right: 2px solid #c99738;
+}
+
+.ornament-corner-bl {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  border-bottom: 2px solid #c99738;
+  border-left: 2px solid #c99738;
+}
+
+.ornament-corner-br {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  border-bottom: 2px solid #c99738;
+  border-right: 2px solid #c99738;
+}
+
+/* Accessibility: respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
