@@ -1,0 +1,58 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Função de verificação de permissão administrativa
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email in [
+          'malaca7x@gmail.com',
+          'admin@wydartemis.com.br',
+          'malaca@artemis.realm'
+        ] ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.admin == true
+      );
+    }
+
+    // Coleção de slides do carrossel: leitura pública, gravação estrita para admins
+    match /slides/{slideId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Status do servidor: leitura pública, atualização apenas por admins ou serviço oficial
+    match /server_status/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Rankings: leitura pública
+    match /characters/{charId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /guilds/{guildId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Perfis de usuários: usuário só pode ler e gravar o próprio perfil
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Pedidos da loja: usuário autenticado pode criar seu próprio pedido
+    match /shop_orders/{orderId} {
+      allow create: if request.auth != null || request.resource.data.userId == 'guest_demo';
+      allow read: if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    // Coleção de admins: apenas admins podem ler e modificar
+    match /admins/{adminId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

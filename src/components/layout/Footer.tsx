@@ -115,6 +115,12 @@ export const Footer: React.FC = () => {
                   Download do Cliente
                 </Link>
               </li>
+              <li>
+                <Link to="/admin/slides" className="text-[#ffd978]/85 hover:text-[#ffd978] transition-colors flex items-center gap-1.5 font-medium">
+                  <ChevronRight className="w-3.5 h-3.5 text-[#ffd978]" />
+                  Painel Administrativo
+                </Link>
+              </li>
             </ul>
           </div>
 

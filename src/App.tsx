@@ -14,6 +14,7 @@ import { ShopPage } from './pages/ShopPage';
 import { CommunityPage } from './pages/CommunityPage';
 import { PlayerAreaPage } from './pages/PlayerAreaPage';
 import { ServerStatusPage } from './pages/ServerStatusPage';
+import { AdminSlidesPage } from './pages/AdminSlidesPage';
 
 // Scroll to top helper on route navigation
 const ScrollToTop: React.FC = () => {
@@ -45,6 +46,8 @@ export const App: React.FC = () => {
               <Route path="/loja" element={<ShopPage />} />
               <Route path="/comunidade" element={<CommunityPage />} />
               <Route path="/area-jogador" element={<PlayerAreaPage />} />
+              <Route path="/admin/slides" element={<AdminSlidesPage />} />
+              <Route path="/admin" element={<AdminSlidesPage />} />
               {/* Fallback to Home */}
               <Route path="*" element={<HomePage />} />
             </Routes>

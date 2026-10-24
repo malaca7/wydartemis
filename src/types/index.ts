@@ -144,3 +144,44 @@ export interface DemoPlayerProfile {
   accountCode: string;
   characters: DemoCharacter[];
 }
+
+// ---------------------------------------------------------------------------
+// Carrossel e Banners Cinematográficos
+// ---------------------------------------------------------------------------
+
+export type SlideStatus = 'published' | 'draft' | 'inactive';
+export type SlideAlignment = 'left' | 'center' | 'right';
+
+export interface BannerSlide {
+  id: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  imageUrl: string;
+  mobileImageUrl?: string;
+  buttonText?: string;
+  buttonUrl?: string;
+  alignment: SlideAlignment;
+  status: SlideStatus;
+  order: number;
+  startDate?: string | null; // ISO 8601 string or YYYY-MM-DDTHH:mm
+  endDate?: string | null;   // ISO 8601 string or YYYY-MM-DDTHH:mm
+  overlayIntensity?: 'none' | 'light' | 'medium' | 'dark';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SlideFilterOptions {
+  status?: SlideStatus | 'all';
+  search?: string;
+}
+
+export interface SlideValidationErrors {
+  title?: string;
+  imageUrl?: string;
+  buttonUrl?: string;
+  startDate?: string;
+  endDate?: string;
+  order?: string;
+}
+

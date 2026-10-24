@@ -89,3 +89,193 @@ test('Community Config: unconfigured channels default to null URL', () => {
   assert.equal(communityLinks.community.url, null);
   assert.equal(communityLinks.support.url, null);
 });
+
+// ---------------------------------------------------------------------------
+// Testes Automatizados do Carrossel e Gerenciador de Slides
+// ---------------------------------------------------------------------------
+
+import {
+  initialDefaultSlides,
+  presetBannerImages,
+  filterActiveSlides,
+  isSlideActive,
+  validateSlide,
+} from '../data/slidesData.ts';
+import type { BannerSlide } from '../types/index.ts';
+
+test('Carousel: preset banners contains all 5 official medieval slides', () => {
+  assert.equal(presetBannerImages.length, 5);
+  assert.equal(initialDefaultSlides.length, 5);
+  const ids = presetBannerImages.map((p) => p.id);
+  assert.ok(ids.includes('banner-cadastro'));
+  assert.ok(ids.includes('banner-atualizacao'));
+  assert.ok(ids.includes('banner-lenda'));
+  assert.ok(ids.includes('banner-pvp'));
+  assert.ok(ids.includes('banner-comunidade'));
+});
+
+test('Carousel: filters out inactive and draft slides', () => {
+  const sampleSlides: BannerSlide[] = [
+    {
+      id: 's1',
+      title: 'Slide Publicado',
+      imageUrl: '/img1.png',
+      alignment: 'left',
+      status: 'published',
+      order: 1,
+      createdAt: '2026-10-20T00:00:00Z',
+      updatedAt: '2026-10-20T00:00:00Z',
+    },
+    {
+      id: 's2',
+      title: 'Slide Rascunho',
+      imageUrl: '/img2.png',
+      alignment: 'left',
+      status: 'draft',
+      order: 2,
+      createdAt: '2026-10-20T00:00:00Z',
+      updatedAt: '2026-10-20T00:00:00Z',
+    },
+    {
+      id: 's3',
+      title: 'Slide Inativo',
+      imageUrl: '/img3.png',
+      alignment: 'left',
+      status: 'inactive',
+      order: 3,
+      createdAt: '2026-10-20T00:00:00Z',
+      updatedAt: '2026-10-20T00:00:00Z',
+    },
+  ];
+
+  const active = filterActiveSlides(sampleSlides);
+  assert.equal(active.length, 1);
+  assert.equal(active[0].id, 's1');
+});
+
+test('Carousel: filters out future scheduled slides and past expired slides', () => {
+  const now = new Date('2026-10-23T12:00:00Z');
+
+  const futureSlide: BannerSlide = {
+    id: 'future',
+    title: 'Evento Futuro',
+    imageUrl: '/future.png',
+    alignment: 'center',
+    status: 'published',
+    order: 1,
+    startDate: '2026-11-01T00:00:00Z', // Agendado para o futuro
+    createdAt: '2026-10-20T00:00:00Z',
+    updatedAt: '2026-10-20T00:00:00Z',
+  };
+
+  const expiredSlide: BannerSlide = {
+    id: 'expired',
+    title: 'Evento Passado',
+    imageUrl: '/past.png',
+    alignment: 'center',
+    status: 'published',
+    order: 2,
+    endDate: '2026-10-01T00:00:00Z', // Expirado
+    createdAt: '2026-09-20T00:00:00Z',
+    updatedAt: '2026-09-20T00:00:00Z',
+  };
+
+  const validSlide: BannerSlide = {
+    id: 'valid',
+    title: 'Evento Vigente',
+    imageUrl: '/valid.png',
+    alignment: 'center',
+    status: 'published',
+    order: 3,
+    startDate: '2026-10-20T00:00:00Z',
+    endDate: '2026-10-30T00:00:00Z',
+    createdAt: '2026-10-20T00:00:00Z',
+    updatedAt: '2026-10-20T00:00:00Z',
+  };
+
+  assert.equal(isSlideActive(futureSlide, now), false);
+  assert.equal(isSlideActive(expiredSlide, now), false);
+  assert.equal(isSlideActive(validSlide, now), true);
+
+  const filtered = filterActiveSlides([futureSlide, expiredSlide, validSlide], now);
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0].id, 'valid');
+});
+
+test('Carousel: sorts active slides by order ascending', () => {
+  const unordered: BannerSlide[] = [
+    {
+      id: 's3',
+      title: 'Terceiro',
+      imageUrl: '/img.png',
+      alignment: 'center',
+      status: 'published',
+      order: 3,
+      createdAt: '2026-10-20T00:00:00Z',
+      updatedAt: '2026-10-20T00:00:00Z',
+    },
+    {
+      id: 's1',
+      title: 'Primeiro',
+      imageUrl: '/img.png',
+      alignment: 'center',
+      status: 'published',
+      order: 1,
+      createdAt: '2026-10-20T00:00:00Z',
+      updatedAt: '2026-10-20T00:00:00Z',
+    },
+    {
+      id: 's2',
+      title: 'Segundo',
+      imageUrl: '/img.png',
+      alignment: 'center',
+      status: 'published',
+      order: 2,
+      createdAt: '2026-10-20T00:00:00Z',
+      updatedAt: '2026-10-20T00:00:00Z',
+    },
+  ];
+
+  const sorted = filterActiveSlides(unordered);
+  assert.equal(sorted[0].id, 's1');
+  assert.equal(sorted[1].id, 's2');
+  assert.equal(sorted[2].id, 's3');
+});
+
+test('Carousel: validateSlide catches invalid input and approves valid payload', () => {
+  // Empty title & image
+  const invalidEmpty = validateSlide({ title: '', imageUrl: '' });
+  assert.ok(invalidEmpty.title);
+  assert.ok(invalidEmpty.imageUrl);
+
+  // Button text without URL
+  const invalidBtn = validateSlide({
+    title: 'Teste',
+    imageUrl: '/img.png',
+    buttonText: 'Cadastre-se',
+    buttonUrl: '',
+  });
+  assert.ok(invalidBtn.buttonUrl);
+
+  // End date before start date
+  const invalidDates = validateSlide({
+    title: 'Teste',
+    imageUrl: '/img.png',
+    startDate: '2026-10-25T10:00',
+    endDate: '2026-10-20T10:00',
+  });
+  assert.ok(invalidDates.endDate);
+
+  // Valid payload
+  const valid = validateSlide({
+    title: 'Título Válido',
+    imageUrl: '/assets/slides/slide-cadastro.png',
+    buttonText: 'Cadastrar',
+    buttonUrl: '/area-jogador',
+    order: 1,
+    startDate: '2026-10-20T00:00',
+    endDate: '2026-10-30T00:00',
+  });
+  assert.equal(Object.keys(valid).length, 0);
+});
+

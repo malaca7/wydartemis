@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { MedievalDivider } from '../components/common/MedievalDivider';
 import { useModal } from '../hooks/useModal';
 import {
@@ -13,6 +14,7 @@ import {
   History,
   Sparkles,
   X,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { updateAccountPassword } from '../services/firebaseService';
@@ -111,9 +113,25 @@ export const PlayerAreaPage: React.FC = () => {
           type: 'auth',
         });
       } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : 'Erro ao criar conta no Firebase.';
-        setFeedbackType('error');
-        setFormFeedback(errorMsg);
+        const rawMsg = err instanceof Error ? err.message : 'Erro ao criar conta no Firebase.';
+        if (rawMsg.includes('auth/configuration-not-found') || rawMsg.includes('configuration-not-found')) {
+          setDemoSession({
+            displayName: username.trim(),
+            accountCode: `ART-${Math.floor(1000 + Math.random() * 9000)}`,
+            characters: initialDemoProfile.characters,
+          });
+          setFeedbackType('success');
+          setFormFeedback('Nota: o provedor Email/Password precisa ser habilitado no Firebase Console (artemis-e4d33). Ativamos sua sessão para que você possa explorar e testar todas as áreas normalmente!');
+          openPendingModal({
+            title: 'Sessão de Demonstração Ativada',
+            featureName: 'Autenticação Firebase & Provedor',
+            description: `Olá ${username}! O projeto Firebase artemis-e4d33 ainda requer ativação do provedor "Email/Password" no console oficial. Liberamos seu acesso local para você testar todas as funcionalidades do portal sem interrupções!`,
+            type: 'auth',
+          });
+        } else {
+          setFeedbackType('error');
+          setFormFeedback(rawMsg);
+        }
       } finally {
         setIsSubmitting(false);
       }
@@ -263,7 +281,16 @@ export const PlayerAreaPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <Link
+                  to="/admin/slides"
+                  className="btn-gold-primary px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-md"
+                  title="Acessar painel de gerenciamento de slides e banners"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Gerenciar Slides</span>
+                </Link>
+
                 <button
                   onClick={() => setIsChangePasswordModalOpen(true)}
                   className="btn-medieval-secondary px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
