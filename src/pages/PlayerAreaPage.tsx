@@ -68,16 +68,11 @@ export const PlayerAreaPage: React.FC = () => {
       try {
         await login(username, password);
         setFeedbackType('success');
-        setFormFeedback('Autenticado com sucesso via Firebase Auth!');
+        setFormFeedback('Autenticado com sucesso!');
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : 'Falha na autenticação';
-        // Provide friendly fallback option if Firebase Auth project has no users yet
-        console.warn('Firebase login notice:', errorMsg);
-        setDemoSession({
-          displayName: username.trim(),
-          accountCode: `ART-${Math.floor(1000 + Math.random() * 9000)}`,
-          characters: initialDemoProfile.characters,
-        });
+        setFeedbackType('error');
+        setFormFeedback(errorMsg);
       } finally {
         setIsSubmitting(false);
       }
@@ -105,33 +100,17 @@ export const PlayerAreaPage: React.FC = () => {
       try {
         await register(username, email, password);
         setFeedbackType('success');
-        setFormFeedback('Conta registrada com sucesso no Firebase Auth e perfil criado no Firestore!');
+        setFormFeedback('Conta registrada com sucesso! Seus personagens iniciais já estão disponíveis.');
         openPendingModal({
-          title: 'Conta Criada no Firebase',
-          featureName: 'Autenticação & Banco de Dados',
-          description: `Parabéns ${username}! Sua conta foi cadastrada com sucesso no Firebase Auth e seu perfil inicial foi sincronizado no Firestore.`,
+          title: 'Conta Criada com Sucesso!',
+          featureName: 'Área do Guerreiro Artemis',
+          description: `Parabéns ${username}! Sua conta foi cadastrada e seus personagens iniciais foram vinculados com sucesso. Bem-vindo ao universo sagrado de Artemis!`,
           type: 'auth',
         });
       } catch (err: unknown) {
-        const rawMsg = err instanceof Error ? err.message : 'Erro ao criar conta no Firebase.';
-        if (rawMsg.includes('auth/configuration-not-found') || rawMsg.includes('configuration-not-found')) {
-          setDemoSession({
-            displayName: username.trim(),
-            accountCode: `ART-${Math.floor(1000 + Math.random() * 9000)}`,
-            characters: initialDemoProfile.characters,
-          });
-          setFeedbackType('success');
-          setFormFeedback('Nota: o provedor Email/Password precisa ser habilitado no Firebase Console (artemis-e4d33). Ativamos sua sessão para que você possa explorar e testar todas as áreas normalmente!');
-          openPendingModal({
-            title: 'Sessão de Demonstração Ativada',
-            featureName: 'Autenticação Firebase & Provedor',
-            description: `Olá ${username}! O projeto Firebase artemis-e4d33 ainda requer ativação do provedor "Email/Password" no console oficial. Liberamos seu acesso local para você testar todas as funcionalidades do portal sem interrupções!`,
-            type: 'auth',
-          });
-        } else {
-          setFeedbackType('error');
-          setFormFeedback(rawMsg);
-        }
+        const rawMsg = err instanceof Error ? err.message : 'Erro ao criar conta.';
+        setFeedbackType('error');
+        setFormFeedback(rawMsg);
       } finally {
         setIsSubmitting(false);
       }

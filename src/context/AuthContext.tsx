@@ -7,13 +7,14 @@ import {
   registerWithFirebase,
   logoutFirebase,
   sendPasswordReset,
+  getActiveLocalSession,
   type UserAccountDoc,
 } from '../services/firebaseService';
 import { AuthContext } from './authContextDef';
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
-  const [userProfile, setUserProfile] = useState<UserAccountDoc | null>(null);
+  const [userProfile, setUserProfile] = useState<UserAccountDoc | null>(() => getActiveLocalSession());
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -24,10 +25,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const profile = await fetchUserProfile(user.uid);
           setUserProfile(profile);
         } catch {
-          setUserProfile(null);
+          setUserProfile(getActiveLocalSession());
         }
       } else {
-        setUserProfile(null);
+        setUserProfile(getActiveLocalSession());
       }
       setIsLoading(false);
     });
