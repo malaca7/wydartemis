@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useModal } from '../../context/ModalContext';
+import { useModal } from '../../hooks/useModal';
 import { EmbersCanvas } from '../common/EmbersCanvas';
 import { AtmosphericFog } from '../common/AtmosphericFog';
 import {
@@ -21,11 +21,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onExploreClick }) => {
   const heroRef = useRef<HTMLElement>(null);
   const [scrollY, setScrollY] = useState(0);
   const [mouseOffset, setMouseOffset] = useState({ x: 0, y: 0 });
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false
+  );
 
   useEffect(() => {
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setPrefersReducedMotion(motionQuery.matches);
 
     const handleMotionChange = (e: MediaQueryListEvent) => {
       setPrefersReducedMotion(e.matches);

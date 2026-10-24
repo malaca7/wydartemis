@@ -1,19 +1,10 @@
-export type ServerStatusType = 'online' | 'maintenance' | 'offline' | 'unconnected';
-
-export interface ServerStatusInfo {
-  status: ServerStatusType;
-  label: string;
-  onlinePlayers?: number;
-  maxPlayers?: number;
-  serverVersion: string;
-  isDemonstrative: boolean;
-}
+// ---------------------------------------------------------------------------
+// Navegação e avisos
+// ---------------------------------------------------------------------------
 
 export interface NavItem {
   name: string;
   href: string;
-  badge?: string;
-  isConfigured?: boolean;
 }
 
 export interface PendingFeatureDetail {
@@ -21,4 +12,135 @@ export interface PendingFeatureDetail {
   featureName: string;
   description: string;
   type?: 'download' | 'auth' | 'shop' | 'external' | 'general';
+}
+
+/** Origem de um conjunto de dados exibido na interface. */
+export type DataSourceKind = 'none' | 'demo' | 'live';
+
+// ---------------------------------------------------------------------------
+// Ranking
+// ---------------------------------------------------------------------------
+
+export type CharacterClass = 'TransKnight' | 'Foema' | 'BeastMaster' | 'Huntress';
+
+export type SortDirection = 'asc' | 'desc';
+
+export interface CharacterRecord {
+  id: string;
+  name: string;
+  characterClass: CharacterClass;
+  level: number;
+  guild: string | null;
+  score: number;
+}
+
+export interface GuildRecord {
+  id: string;
+  name: string;
+  members: number;
+  score: number;
+}
+
+/** Registro com posição calculada a partir da pontuação. */
+export type Ranked<T> = T & { position: number };
+
+export type RankedCharacter = Ranked<CharacterRecord>;
+export type RankedGuild = Ranked<GuildRecord>;
+
+// ---------------------------------------------------------------------------
+// Status do servidor
+// ---------------------------------------------------------------------------
+
+export type ServerState = 'unconnected' | 'unavailable' | 'maintenance' | 'offline' | 'online';
+
+export interface ServerStatusSnapshot {
+  state: ServerState;
+  /** `null` quando não existe fonte confiável. */
+  onlinePlayers: number | null;
+  /** Data ISO 8601 da última leitura real; `null` se nunca houve leitura. */
+  lastUpdated: string | null;
+  message: string | null;
+  source: DataSourceKind;
+}
+
+// ---------------------------------------------------------------------------
+// Links externos e configuração
+// ---------------------------------------------------------------------------
+
+export interface ExternalLinkConfig {
+  id: string;
+  label: string;
+  description: string;
+  /** `null` enquanto a URL oficial não for fornecida. */
+  url: string | null;
+}
+
+export interface SiteOperatorConfig {
+  name: string | null;
+  contactEmail: string | null;
+}
+
+export interface RequirementItem {
+  label: string;
+  value: string;
+}
+
+export interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+export interface DownloadConfig {
+  /** Somente URLs HTTPS reais e autorizadas habilitam o botão de download. */
+  downloadUrl: string | null;
+  clientVersion: string | null;
+  fileSize: string | null;
+  releaseDate: string | null;
+  minimumRequirements: RequirementItem[] | null;
+  recommendedRequirements: RequirementItem[] | null;
+  installSteps: string[] | null;
+  updateNotices: string[];
+  troubleshooting: FaqItem[] | null;
+}
+
+// ---------------------------------------------------------------------------
+// Loja demonstrativa
+// ---------------------------------------------------------------------------
+
+export type ShopCategory = 'Pacotes' | 'Cosméticos' | 'Montarias' | 'Utilitários';
+
+export type ShopArtKey = 'package' | 'shirt' | 'feather' | 'flask' | 'gem' | 'crown' | 'scroll' | 'shield';
+
+export interface ShopProduct {
+  id: string;
+  name: string;
+  category: ShopCategory;
+  summary: string;
+  details: string[];
+  /** Valor fictício, em "créditos de exemplo" — não é preço oficial. */
+  demoValue: number;
+  art: ShopArtKey;
+}
+
+export interface CartLine {
+  productId: string;
+  quantity: number;
+}
+
+// ---------------------------------------------------------------------------
+// Área do jogador (demonstração)
+// ---------------------------------------------------------------------------
+
+export interface DemoCharacter {
+  id: string;
+  name: string;
+  characterClass: CharacterClass;
+  level: number;
+  stage: string;
+}
+
+export interface DemoPlayerProfile {
+  displayName: string;
+  accountCode: string;
+  characters: DemoCharacter[];
 }

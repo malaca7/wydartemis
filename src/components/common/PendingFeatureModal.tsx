@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { useModal } from '../../context/ModalContext';
+import { useModal } from '../../hooks/useModal';
 import { ShieldAlert, X, Info, Download, Lock, ExternalLink, Sparkles } from 'lucide-react';
 
 export const PendingFeatureModal: React.FC = () => {

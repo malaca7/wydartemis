@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useModal } from '../../context/ModalContext';
+import { useModal } from '../../hooks/useModal';
 import {
   Menu,
   X,
@@ -15,6 +15,7 @@ const navItems: NavItem[] = [
   { name: 'O Jogo', href: '/o-jogo' },
   { name: 'Notícias', href: '/noticias' },
   { name: 'Ranking', href: '/ranking' },
+  { name: 'Status', href: '/status' },
   { name: 'Download', href: '/download' },
   { name: 'Loja', href: '/loja' },
   { name: 'Comunidade', href: '/comunidade' },
@@ -39,10 +40,11 @@ export const Navbar: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Close mobile menu on route change
-  useEffect(() => {
+  const [prevPath, setPrevPath] = useState(location.pathname);
+  if (prevPath !== location.pathname) {
+    setPrevPath(location.pathname);
     setIsMobileMenuOpen(false);
-  }, [location.pathname]);
+  }
 
   // Handle escape key to close mobile menu
   useEffect(() => {
@@ -62,16 +64,6 @@ export const Navbar: React.FC = () => {
       featureName: 'Download do Instalador Oficial',
       description: 'O cliente de jogo para a fase de testes está em preparação técnica. A URL oficial de download será liberada no anúncio de lançamento.',
       type: 'download',
-    });
-  };
-
-  const handleAccountClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    openPendingModal({
-      title: 'Painel do Jogador',
-      featureName: 'Área do Jogador & Autenticação',
-      description: 'A área de login e gerenciamento de contas é um protótipo visual demonstrativo nesta primeira etapa. O cadastro real de contas será integrado posteriormente.',
-      type: 'auth',
     });
   };
 
@@ -143,14 +135,14 @@ export const Navbar: React.FC = () => {
 
             {/* Action Buttons */}
             <div className="hidden sm:flex items-center gap-3">
-              <button
-                onClick={handleAccountClick}
+              <Link
+                to="/area-jogador"
                 className="btn-medieval-secondary px-4 py-2 rounded text-xs flex items-center gap-2 cursor-pointer"
                 title="Área do Jogador (Demonstrativo)"
               >
                 <User className="w-3.5 h-3.5 text-[#ffd978]" />
                 <span>Área do Jogador</span>
-              </button>
+              </Link>
 
               <button
                 onClick={handleDownloadClick}
@@ -258,16 +250,14 @@ export const Navbar: React.FC = () => {
 
             {/* Bottom Actions inside drawer */}
             <div className="pt-6 border-t border-neutral-800 space-y-3">
-              <button
-                onClick={(e) => {
-                  setIsMobileMenuOpen(false);
-                  handleAccountClick(e);
-                }}
+              <Link
+                to="/area-jogador"
+                onClick={() => setIsMobileMenuOpen(false)}
                 className="w-full btn-medieval-secondary py-2.5 rounded text-xs flex items-center justify-center gap-2"
               >
                 <User className="w-4 h-4 text-[#ffd978]" />
                 <span>Área do Jogador</span>
-              </button>
+              </Link>
 
               <button
                 onClick={(e) => {

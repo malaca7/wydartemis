@@ -12,6 +12,7 @@ import { DownloadPage } from './pages/DownloadPage';
 import { ShopPage } from './pages/ShopPage';
 import { CommunityPage } from './pages/CommunityPage';
 import { PlayerAreaPage } from './pages/PlayerAreaPage';
+import { ServerStatusPage } from './pages/ServerStatusPage';
 
 // Scroll to top helper on route navigation
 const ScrollToTop: React.FC = () => {
@@ -37,6 +38,7 @@ export const App: React.FC = () => {
               <Route path="/o-jogo" element={<GameInfoPage />} />
               <Route path="/noticias" element={<NewsPage />} />
               <Route path="/ranking" element={<RankingPage />} />
+              <Route path="/status" element={<ServerStatusPage />} />
               <Route path="/download" element={<DownloadPage />} />
               <Route path="/loja" element={<ShopPage />} />
               <Route path="/comunidade" element={<CommunityPage />} />

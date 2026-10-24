@@ -1,6 +1,6 @@
 import React from 'react';
 import { MedievalDivider } from '../components/common/MedievalDivider';
-import { useModal } from '../context/ModalContext';
+import { useModal } from '../hooks/useModal';
 import {
   Download,
   HardDrive,

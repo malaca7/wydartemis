@@ -7,8 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "test": "node --test src/tests/portal.test.ts",
     "preview": "vite preview",
-    "predeploy": "npm run build",
+    "predeploy": "npm run test && npm run build",
     "deploy": "gh-pages -d dist"
   },
   "homepage": "http://artemis.malaca.com.br/",

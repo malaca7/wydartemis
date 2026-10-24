@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useModal } from '../../context/ModalContext';
+import { useModal } from '../../hooks/useModal';
 import { MedievalDivider } from '../common/MedievalDivider';
 import {
   Shield,
@@ -12,6 +12,8 @@ import {
   Globe,
   ChevronRight,
 } from 'lucide-react';
+
+const CURRENT_YEAR = 2026;
 
 export const Footer: React.FC = () => {
   const { openPendingModal } = useModal();
@@ -93,6 +95,18 @@ export const Footer: React.FC = () => {
                 <Link to="/ranking" className="hover:text-[#ffd978] transition-colors flex items-center gap-1.5">
                   <ChevronRight className="w-3.5 h-3.5 text-[#c99738]" />
                   Ranking de Jogadores
+                </Link>
+              </li>
+              <li>
+                <Link to="/status" className="hover:text-[#ffd978] transition-colors flex items-center gap-1.5">
+                  <ChevronRight className="w-3.5 h-3.5 text-[#c99738]" />
+                  Status do Servidor
+                </Link>
+              </li>
+              <li>
+                <Link to="/area-jogador" className="hover:text-[#ffd978] transition-colors flex items-center gap-1.5">
+                  <ChevronRight className="w-3.5 h-3.5 text-[#c99738]" />
+                  Área do Jogador
                 </Link>
               </li>
               <li>
@@ -193,7 +207,7 @@ export const Footer: React.FC = () => {
         <div className="pt-4 flex flex-col md:flex-row items-center justify-between text-xs text-[#8c8475] gap-4">
           <div className="text-center md:text-left space-y-1">
             <p className="font-medium text-[#b3ab9d]">
-              © {new Date().getFullYear()} WYD Artemis — Protótipo de Portal Medieval de MMORPG.
+              © {CURRENT_YEAR} WYD Artemis — Protótipo de Portal Medieval de MMORPG.
             </p>
             <p className="max-w-3xl leading-relaxed text-[11px] text-[#7d7568]">
               Aviso legal: Este projeto é um protótipo visual demonstrativo. Todas as marcas, nomes de classes e propriedades intelectuais originais associadas a "With Your Destiny (WYD)" pertencem a seus respectivos titulares de direitos. Nenhuma transação comercial real, autenticação oficial de terceiros ou vínculo governamental é alegado ou realizado nesta fase.

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useModal } from '../../context/ModalContext';
+import { useModal } from '../../hooks/useModal';
 import { MedievalDivider } from '../common/MedievalDivider';
 import { useScrollReveal } from '../../hooks/useScrollReveal';
 import {
