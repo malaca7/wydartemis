@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { ModalProvider } from './context/ModalContext';
+import { AuthProvider } from './context/AuthContext';
 import { Navbar } from './components/layout/Navbar';
 import { Footer } from './components/layout/Footer';
 import { PendingFeatureModal } from './components/common/PendingFeatureModal';
@@ -28,10 +29,11 @@ const ScrollToTop: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <ModalProvider>
-      <HashRouter>
-        <ScrollToTop />
-        <div className="min-h-screen flex flex-col bg-[#07080c] text-[#ede3cc] selection:bg-[#c99738]/30 selection:text-[#ffd978]">
-          <Navbar />
+      <AuthProvider>
+        <HashRouter>
+          <ScrollToTop />
+          <div className="min-h-screen flex flex-col bg-[#07080c] text-[#ede3cc] selection:bg-[#c99738]/30 selection:text-[#ffd978]">
+            <Navbar />
           <main className="flex-1">
             <Routes>
               <Route path="/" element={<HomePage />} />
@@ -51,8 +53,9 @@ export const App: React.FC = () => {
           <PendingFeatureModal />
         </div>
       </HashRouter>
-    </ModalProvider>
-  );
+    </AuthProvider>
+  </ModalProvider>
+);
 };
 
 export default App;

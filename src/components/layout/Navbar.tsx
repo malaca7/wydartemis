@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
+import { useAuth } from '../../hooks/useAuth';
 import {
   Menu,
   X,
@@ -22,6 +23,7 @@ const navItems: NavItem[] = [
 ];
 
 export const Navbar: React.FC = () => {
+  const { currentUser } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
@@ -138,10 +140,11 @@ export const Navbar: React.FC = () => {
               <Link
                 to="/area-jogador"
                 className="btn-medieval-secondary px-4 py-2 rounded text-xs flex items-center gap-2 cursor-pointer"
-                title="Área do Jogador (Demonstrativo)"
+                title={currentUser ? `Logado como ${currentUser.displayName || currentUser.email}` : "Área do Jogador"}
               >
                 <User className="w-3.5 h-3.5 text-[#ffd978]" />
-                <span>Área do Jogador</span>
+                <span>{currentUser ? (currentUser.displayName || 'Minha Conta') : 'Área do Jogador'}</span>
+                {currentUser && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
               </Link>
 
               <button
@@ -256,7 +259,8 @@ export const Navbar: React.FC = () => {
                 className="w-full btn-medieval-secondary py-2.5 rounded text-xs flex items-center justify-center gap-2"
               >
                 <User className="w-4 h-4 text-[#ffd978]" />
-                <span>Área do Jogador</span>
+                <span>{currentUser ? (currentUser.displayName || 'Minha Conta') : 'Área do Jogador'}</span>
+                {currentUser && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
               </Link>
 
               <button

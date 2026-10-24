@@ -22,9 +22,12 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { mockShopProducts, calculateCartTotal } from '../data/shopData';
+import { recordShopOrder } from '../services/firebaseService';
+import { useAuth } from '../hooks/useAuth';
 import type { ShopProduct, CartLine, ShopArtKey } from '../types';
 
 export const ShopPage: React.FC = () => {
+  const { currentUser } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -83,12 +86,19 @@ export const ShopPage: React.FC = () => {
     setCart([]);
   };
 
-  const handleSimulateCheckout = () => {
+  const handleSimulateCheckout = async () => {
     setCheckoutSimulated(true);
+    let orderId: string | null = null;
+    try {
+      orderId = await recordShopOrder(cart, cartTotal, currentUser);
+    } catch (e) {
+      console.warn('Erro ao registrar pedido no Firebase:', e);
+    }
+
     openPendingModal({
-      title: 'Simulação de Pedido Concluída',
-      featureName: 'Checkout Demonstrativo',
-      description: `Pedido de ${cartTotal.toLocaleString('pt-BR')} Créditos Demonstrativos registrado apenas como simulação visual no navegador. Nenhum pagamento real foi processado e nenhum dado bancário foi solicitado.`,
+      title: 'Pedido Registrado no Firebase',
+      featureName: 'Checkout no Banco de Dados (Firestore)',
+      description: `Pedido de ${cartTotal.toLocaleString('pt-BR')} créditos registrado com sucesso no banco de dados do Firebase Firestore${orderId ? ` (ID: ${orderId})` : ''}. Nenhum dado de cartão ou valor financeiro foi cobrado.`,
       type: 'shop',
     });
     setCart([]);

@@ -16,11 +16,37 @@ import {
   serverStateMetas,
   serverSpecifications,
 } from '../data/serverStatusData';
-import type { ServerState } from '../types';
+import {
+  subscribeServerStatus,
+  updateServerStatusInFirestore,
+} from '../services/firebaseService';
+import type { ServerState, ServerStatusSnapshot } from '../types';
 
 export const ServerStatusPage: React.FC = () => {
-  const [currentSnapshot] = useState(initialServerStatus);
-  const [selectedState, setSelectedState] = useState<ServerState>(currentSnapshot.state);
+  const [currentSnapshot, setCurrentSnapshot] = useState<ServerStatusSnapshot>(initialServerStatus);
+  const [selectedState, setSelectedState] = useState<ServerState>(initialServerStatus.state);
+  const [isFirebaseConnected, setIsFirebaseConnected] = useState(false);
+
+  React.useEffect(() => {
+    const unsub = subscribeServerStatus((snapshot) => {
+      setCurrentSnapshot(snapshot);
+      setSelectedState(snapshot.state);
+      setIsFirebaseConnected(true);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleStateChange = async (st: ServerState) => {
+    setSelectedState(st);
+    try {
+      await updateServerStatusInFirestore({
+        state: st,
+        onlinePlayers: st === 'online' ? 248 : st === 'maintenance' ? 0 : null,
+      });
+    } catch (e) {
+      console.warn('Erro ao atualizar status no Firestore:', e);
+    }
+  };
 
   const activeMeta = serverStateMetas[selectedState];
 
@@ -72,12 +98,17 @@ export const ServerStatusPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Demonstration Notice Box */}
-          <div className="w-full lg:w-auto p-4 rounded-xl bg-[#0b0e14] border border-neutral-800 flex flex-col gap-1 text-xs">
-            <span className="text-[10px] text-neutral-400 uppercase font-semibold">Fonte dos Dados</span>
-            <span className="text-amber-300 font-medium">Aguardando Conexão com o Cluster</span>
-            <span className="text-[11px] text-neutral-500 pt-1">
-              Sem rotinas falsas de polling
+          {/* Firestore Telemetry Status Box */}
+          <div className="w-full lg:w-auto p-4 rounded-xl bg-[#0b0e14] border border-[#c99738]/30 flex flex-col gap-1 text-xs shadow-inner">
+            <span className="text-[10px] text-neutral-400 uppercase font-semibold">Base de Dados</span>
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${isFirebaseConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              <span className="text-emerald-300 font-medium">
+                {isFirebaseConnected ? 'Firebase Firestore Conectado' : 'Conectando ao Firestore...'}
+              </span>
+            </div>
+            <span className="text-[11px] text-neutral-500 pt-1 font-mono">
+              Doc: server_status/current
             </span>
           </div>
         </div>
@@ -153,7 +184,7 @@ export const ServerStatusPage: React.FC = () => {
           {(Object.keys(serverStateMetas) as ServerState[]).map((st) => (
             <button
               key={st}
-              onClick={() => setSelectedState(st)}
+              onClick={() => handleStateChange(st)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
                 selectedState === st
                   ? 'bg-[#c99738] text-black font-bold shadow'

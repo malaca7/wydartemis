@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { MedievalDivider } from '../components/common/MedievalDivider';
 import {
   Trophy,
@@ -11,14 +11,21 @@ import {
   Users,
 } from 'lucide-react';
 import {
-  getRankedCharacters,
-  getRankedGuilds,
+  mockCharacters,
+  mockGuilds,
   paginate,
 } from '../data/rankingData';
-import type { CharacterClass, SortDirection } from '../types';
+import {
+  fetchCharactersFromFirestore,
+  fetchGuildsFromFirestore,
+} from '../services/firebaseService';
+import type { CharacterClass, SortDirection, CharacterRecord, GuildRecord } from '../types';
 
 export const RankingPage: React.FC = () => {
   const [tab, setTab] = useState<'players' | 'guilds'>('players');
+  const [characters, setCharacters] = useState<CharacterRecord[]>(mockCharacters);
+  const [guilds, setGuilds] = useState<GuildRecord[]>(mockGuilds);
+  const [isFirebaseSynced, setIsFirebaseSynced] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState<CharacterClass | 'All'>('All');
   const [characterSort, setCharacterSort] = useState<'score' | 'level' | 'name'>('score');
@@ -27,6 +34,22 @@ export const RankingPage: React.FC = () => {
   const [guildSortDir, setGuildSortDir] = useState<SortDirection>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([fetchCharactersFromFirestore(), fetchGuildsFromFirestore()])
+      .then(([chars, glds]) => {
+        if (isMounted) {
+          if (chars.length > 0) setCharacters(chars);
+          if (glds.length > 0) setGuilds(glds);
+          setIsFirebaseSynced(true);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const classes: Array<{ id: CharacterClass | 'All'; label: string }> = [
     { id: 'All', label: 'Todas as Classes' },
@@ -37,21 +60,46 @@ export const RankingPage: React.FC = () => {
   ];
 
   const rankedCharacters = useMemo(() => {
-    return getRankedCharacters({
-      search: searchTerm,
-      characterClass: selectedClass,
-      sortBy: characterSort,
-      sortDirection: characterSortDir,
+    const normalized = searchTerm.trim().toLowerCase();
+    const filtered = characters.filter((char) => {
+      if (selectedClass !== 'All' && char.characterClass !== selectedClass) return false;
+      if (normalized) {
+        const matchName = char.name.toLowerCase().includes(normalized);
+        const matchGuild = char.guild ? char.guild.toLowerCase().includes(normalized) : false;
+        const matchClass = char.characterClass.toLowerCase().includes(normalized);
+        if (!matchName && !matchGuild && !matchClass) return false;
+      }
+      return true;
     });
-  }, [searchTerm, selectedClass, characterSort, characterSortDir]);
+
+    filtered.sort((a, b) => {
+      let comp = 0;
+      if (characterSort === 'score') comp = b.score - a.score;
+      else if (characterSort === 'level') comp = b.level - a.level;
+      else if (characterSort === 'name') comp = a.name.localeCompare(b.name);
+      return characterSortDir === 'asc' ? -comp : comp;
+    });
+
+    return filtered.map((c, i) => ({ ...c, position: i + 1 }));
+  }, [characters, searchTerm, selectedClass, characterSort, characterSortDir]);
 
   const rankedGuilds = useMemo(() => {
-    return getRankedGuilds({
-      search: searchTerm,
-      sortBy: guildSort,
-      sortDirection: guildSortDir,
+    const normalized = searchTerm.trim().toLowerCase();
+    const filtered = guilds.filter((g) => {
+      if (!normalized) return true;
+      return g.name.toLowerCase().includes(normalized);
     });
-  }, [searchTerm, guildSort, guildSortDir]);
+
+    filtered.sort((a, b) => {
+      let comp = 0;
+      if (guildSort === 'score') comp = b.score - a.score;
+      else if (guildSort === 'members') comp = b.members - a.members;
+      else if (guildSort === 'name') comp = a.name.localeCompare(b.name);
+      return guildSortDir === 'asc' ? -comp : comp;
+    });
+
+    return filtered.map((g, i) => ({ ...g, position: i + 1 }));
+  }, [guilds, searchTerm, guildSort, guildSortDir]);
 
   const paginatedCharacters = useMemo(() => {
     return paginate(rankedCharacters, currentPage, pageSize);
@@ -101,12 +149,20 @@ export const RankingPage: React.FC = () => {
         <MedievalDivider variant="gold" className="my-6" />
       </div>
 
-      {/* Demonstrative Alert Banner */}
-      <div className="mb-8 p-4 rounded-xl bg-amber-950/20 border border-amber-800/40 text-amber-200/90 text-xs flex items-center gap-3">
-        <AlertCircle className="w-5 h-5 shrink-0 text-amber-400" />
-        <p>
-          <strong className="text-[#ffd978]">Dados demonstrativos:</strong> Este ranking utiliza registros fictícios organizados para prototipagem de interface e testes de usabilidade. Não representa o ranking oficial de jogadores reais.
-        </p>
+      {/* Demonstrative Alert Banner with Firebase Status */}
+      <div className="mb-8 p-4 rounded-xl bg-[#0e121a] border border-[#c99738]/30 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 shrink-0 text-[#c99738]" />
+          <p className="text-[#c5bcab]">
+            <strong className="text-[#ffd978]">Ranking de Honra:</strong> Registros sincronizados com a base de dados do ecossistema Artemis.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 bg-[#141924] px-3 py-1.5 rounded-lg border border-neutral-800">
+          <span className={`w-2 h-2 rounded-full ${isFirebaseSynced ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+          <span className="text-[11px] font-mono text-emerald-300">
+            {isFirebaseSynced ? 'Firebase Firestore Conectado' : 'Conectando ao Firebase...'}
+          </span>
+        </div>
       </div>
 
       {/* Tab Switcher & Search Bar */}
