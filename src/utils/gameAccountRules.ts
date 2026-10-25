@@ -30,15 +30,15 @@ export function validateGameAccountUsername(username: string): ValidationResult 
 
 /**
  * Valida a sub-senha numérica (PIN) da conta de jogo.
- * Padrão WYD clássico: exatamente 6 dígitos numéricos.
+ * Padrão WYD Artemis: exatamente 4 dígitos numéricos (apenas números).
  */
 export function validateGameAccountPin(pin: string): ValidationResult {
   if (!pin) {
-    return { valid: false, error: 'O PIN numérico de segurança é obrigatório.' };
+    return { valid: false, error: 'A sub-senha (PIN) de segurança é obrigatória.' };
   }
   const clean = pin.trim();
-  if (!/^\d{6}$/.test(clean)) {
-    return { valid: false, error: 'A sub-senha (PIN) de segurança deve conter exatamente 6 dígitos numéricos.' };
+  if (!/^\d{4}$/.test(clean)) {
+    return { valid: false, error: 'A sub-senha (PIN) de segurança deve conter exatamente 4 dígitos numéricos (apenas números).' };
   }
   return { valid: true };
 }

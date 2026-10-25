@@ -418,18 +418,19 @@ test('Game Accounts: validates username length, characters and constraints', () 
   assert.equal(validateGameAccountUsername('guerreiro@01').valid, false);
 });
 
-test('Game Accounts: validates 6-digit numeric security PIN', () => {
-  // Valid PINs
-  assert.equal(validateGameAccountPin('123456').valid, true);
-  assert.equal(validateGameAccountPin('987654').valid, true);
-  assert.equal(validateGameAccountPin('000000').valid, true);
+test('Game Accounts: validates 4-digit numeric security PIN', () => {
+  // Valid 4-digit PINs
+  assert.equal(validateGameAccountPin('1234').valid, true);
+  assert.equal(validateGameAccountPin('9876').valid, true);
+  assert.equal(validateGameAccountPin('0000').valid, true);
 
   // Invalid PINs: wrong length, letters or empty
   assert.equal(validateGameAccountPin('').valid, false);
+  assert.equal(validateGameAccountPin('123').valid, false);
   assert.equal(validateGameAccountPin('12345').valid, false);
-  assert.equal(validateGameAccountPin('1234567').valid, false);
-  assert.equal(validateGameAccountPin('abcdef').valid, false);
-  assert.equal(validateGameAccountPin('12345a').valid, false);
+  assert.equal(validateGameAccountPin('123456').valid, false);
+  assert.equal(validateGameAccountPin('abcd').valid, false);
+  assert.equal(validateGameAccountPin('12a4').valid, false);
 });
 
 test('Game Accounts: validates character name constraints', () => {

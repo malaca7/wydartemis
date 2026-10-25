@@ -6,6 +6,11 @@ import {
   saveAccountToLocalCache,
   isFirestoreAvailable,
 } from './firebaseService';
+import {
+  validateGameAccountPin,
+  validateGameAccountUsername,
+  validateCharacterName,
+} from '../utils/gameAccountRules';
 
 const USERS_COLLECTION = 'users';
 
@@ -14,6 +19,14 @@ const USERS_COLLECTION = 'users';
  */
 export async function persistUserAccounts(user: UserAccountDoc): Promise<void> {
   saveAccountToLocalCache(user);
+
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('wyd_artemis_active_session', JSON.stringify(user));
+    } catch {
+      // Ignora erro de escrita local
+    }
+  }
 
   if (isFirestoreAvailable && user.uid && !user.uid.startsWith('demo_')) {
     try {
@@ -49,7 +62,7 @@ export function getUserGameAccounts(user: UserAccountDoc | null): GameAccount[] 
   const defaultAccount: GameAccount = {
     id: `ga_${user.uid || 'session'}_01`,
     username: `${sanitizedName}`,
-    numericPin: '123456',
+    numericPin: '1234',
     status: 'active',
     createdAt: user.createdAt || '25 de Outubro de 2026',
     characters: user.characters && user.characters.length > 0
@@ -95,15 +108,12 @@ export async function createGameAccount(
     throw new Error('Limite máximo de 5 contas de jogo atingido para esta conta mestre.');
   }
 
-  const cleanUsername = input.username ? input.username.trim().toLowerCase() : '';
-  if (!cleanUsername || cleanUsername.length < 4 || cleanUsername.length > 16) {
-    throw new Error('O login da conta de jogo deve conter entre 4 e 16 caracteres.');
+  const userValidation = validateGameAccountUsername(input.username);
+  if (!userValidation.valid) {
+    throw new Error(userValidation.error || 'Nome de usuário inválido.');
   }
 
-  if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
-    throw new Error('O login da conta de jogo pode conter apenas letras, números e sublinhados (_).');
-  }
-
+  const cleanUsername = input.username.trim().toLowerCase();
   const alreadyExists = currentAccounts.some(
     (acc) => acc.username.toLowerCase() === cleanUsername
   );
@@ -111,9 +121,10 @@ export async function createGameAccount(
     throw new Error(`A conta de jogo "${cleanUsername}" já existe neste perfil.`);
   }
 
-  let cleanPin = input.numericPin ? input.numericPin.trim() : '123456';
-  if (!/^\d{6}$/.test(cleanPin)) {
-    throw new Error('A sub-senha (PIN) de segurança deve conter exatamente 6 dígitos numéricos.');
+  const cleanPin = input.numericPin ? input.numericPin.trim() : '1234';
+  const pinValidation = validateGameAccountPin(cleanPin);
+  if (!pinValidation.valid) {
+    throw new Error(pinValidation.error || 'A sub-senha (PIN) de segurança deve conter exatamente 4 dígitos numéricos.');
   }
 
   const newAccount: GameAccount = {
@@ -163,8 +174,9 @@ export async function updateGameAccount(
 
   if (updates.numericPin !== undefined) {
     const cleanPin = updates.numericPin.trim();
-    if (!/^\d{6}$/.test(cleanPin)) {
-      throw new Error('O PIN de segurança deve conter exatamente 6 dígitos numéricos.');
+    const pinValidation = validateGameAccountPin(cleanPin);
+    if (!pinValidation.valid) {
+      throw new Error(pinValidation.error || 'A sub-senha (PIN) deve conter exatamente 4 dígitos numéricos.');
     }
     target.numericPin = cleanPin;
   }
@@ -243,14 +255,12 @@ export async function addCharacterToGameAccount(
     throw new Error('Esta conta de jogo já atingiu o limite máximo de 4 personagens.');
   }
 
-  const cleanName = charData.name ? charData.name.trim() : '';
-  if (!cleanName || cleanName.length < 3 || cleanName.length > 14) {
-    throw new Error('O nome do personagem deve conter entre 3 e 14 caracteres.');
+  const charValidation = validateCharacterName(charData.name);
+  if (!charValidation.valid) {
+    throw new Error(charValidation.error || 'Nome de personagem inválido.');
   }
 
-  if (!/^[a-zA-Z0-9_-]+$/.test(cleanName)) {
-    throw new Error('O nome do personagem pode conter apenas letras, números, hífens e sublinhados.');
-  }
+  const cleanName = charData.name.trim();
 
   // Verifica se o nome já existe na mesma conta
   const nameExists = target.characters.some(

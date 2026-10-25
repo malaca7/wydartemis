@@ -10,7 +10,6 @@ import {
   LogOut,
   Shield,
   KeyRound,
-  History,
   Sparkles,
   X,
   Eye,
@@ -21,11 +20,10 @@ import {
   Plus,
   Trash2,
   Settings,
-  Edit3,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { updateAccountPassword } from '../services/firebaseService';
-import { initialDemoProfile, mockAccountActivities } from '../data/playerData';
+import { updateAccountPassword, getActiveLocalSession } from '../services/firebaseService';
+import { initialDemoProfile } from '../data/playerData';
 import type { DemoPlayerProfile, DemoCharacter, GameAccount, CharacterClass } from '../types';
 import { sanitizeText, evaluatePasswordStrength } from '../utils/security';
 import { CharacterDetailModal } from '../components/player/CharacterDetailModal';
@@ -37,8 +35,6 @@ import {
   updateGameAccount,
   deleteGameAccount,
   addCharacterToGameAccount,
-  updateCharacterInGameAccount,
-  deleteCharacterFromGameAccount,
 } from '../services/gameAccountService';
 import { isUserAdmin } from '../services/slidesService';
 
@@ -51,6 +47,7 @@ export const PlayerAreaPage: React.FC = () => {
     register,
     logout,
     resetPassword,
+    refreshProfile,
   } = useAuth();
 
   const [demoSession, setDemoSession] = useState<DemoPlayerProfile | null>(null);
@@ -71,12 +68,9 @@ export const PlayerAreaPage: React.FC = () => {
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [accountToEdit, setAccountToEdit] = useState<GameAccount | null>(null);
   const [isCharacterModalOpen, setIsCharacterModalOpen] = useState(false);
-  const [characterToEdit, setCharacterToEdit] = useState<DemoCharacter | null>(null);
   const [targetAccountForChar, setTargetAccountForChar] = useState<GameAccount | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{
-    type: 'account' | 'character';
     accountId: string;
-    characterId?: string;
     name: string;
   } | null>(null);
 
@@ -112,7 +106,7 @@ export const PlayerAreaPage: React.FC = () => {
       const demoAcc: GameAccount = {
         id: 'ga_demo_01',
         username: 'artemis_demo',
-        numericPin: '123456',
+        numericPin: '1234',
         status: 'active',
         createdAt: '25 de Outubro de 2026',
         characters: demoSession.characters || initialDemoProfile.characters,
@@ -291,45 +285,79 @@ export const PlayerAreaPage: React.FC = () => {
     numericPin?: string;
     notes?: string;
   }) => {
+    // 1. Sessão demonstrativa
     if (demoSession) {
       if (accountToEdit) {
         const updated = gameAccounts.map((ga) =>
           ga.id === accountToEdit.id
-            ? { ...ga, numericPin: data.numericPin || ga.numericPin, notes: data.notes }
+            ? {
+                ...ga,
+                password: data.password !== undefined ? data.password : ga.password,
+                numericPin: data.numericPin || ga.numericPin || '1234',
+                notes: data.notes !== undefined ? data.notes : ga.notes,
+              }
             : ga
         );
         setGameAccounts(updated);
+        setDemoSession({
+          ...demoSession,
+          gameAccounts: updated,
+        });
       } else {
         const newAcc: GameAccount = {
           id: `ga_demo_${Date.now()}`,
           username: data.username,
-          numericPin: data.numericPin || '123456',
+          password: data.password,
+          numericPin: data.numericPin || '1234',
           status: 'active',
           createdAt: new Date().toLocaleDateString('pt-BR'),
           characters: [],
           notes: data.notes,
         };
-        setGameAccounts([...gameAccounts, newAcc]);
+        const updated = [...gameAccounts, newAcc];
+        setGameAccounts(updated);
+        setDemoSession({
+          ...demoSession,
+          gameAccounts: updated,
+        });
       }
       return;
     }
 
-    if (!userProfile) return;
+    // 2. Usuário Autenticado
+    const activeUser = userProfile || getActiveLocalSession();
+    if (!activeUser) {
+      throw new Error('Sessão de usuário não encontrada. Por favor, conecte-se novamente.');
+    }
 
     if (accountToEdit) {
-      const updatedUser = await updateGameAccount(userProfile, accountToEdit.id, {
+      const updatedUser = await updateGameAccount(activeUser, accountToEdit.id, {
         password: data.password,
         numericPin: data.numericPin,
         notes: data.notes,
       });
       setGameAccounts([...(updatedUser.gameAccounts || [])]);
+      if (refreshProfile) {
+        try {
+          await refreshProfile();
+        } catch {
+          // ignora falha local de refresh
+        }
+      }
     } else {
-      const res = await createGameAccount(userProfile, data);
+      const res = await createGameAccount(activeUser, data);
       setGameAccounts([...(res.updatedUser.gameAccounts || [])]);
+      if (refreshProfile) {
+        try {
+          await refreshProfile();
+        } catch {
+          // ignora falha local de refresh
+        }
+      }
     }
   };
 
-  // Gerenciamento de Personagens dentro da Conta de Jogo
+  // Criação de Personagem inicial na Conta de Jogo
   const handleSaveCharacter = async (data: {
     name: string;
     characterClass: CharacterClass;
@@ -339,97 +367,68 @@ export const PlayerAreaPage: React.FC = () => {
     if (!targetAccountForChar) return;
 
     if (demoSession) {
-      if (characterToEdit) {
-        const updatedAccounts = gameAccounts.map((ga) => {
-          if (ga.id === targetAccountForChar.id) {
-            return {
-              ...ga,
-              characters: ga.characters.map((c) =>
-                c.id === characterToEdit.id ? { ...c, ...data } : c
-              ),
-            };
-          }
-          return ga;
-        });
-        setGameAccounts(updatedAccounts);
-      } else {
-        const newChar: DemoCharacter = {
-          id: `char_${Date.now()}`,
-          name: data.name,
-          characterClass: data.characterClass,
-          level: data.level,
-          stage: data.stage,
-        };
-        const updatedAccounts = gameAccounts.map((ga) => {
-          if (ga.id === targetAccountForChar.id) {
-            return {
-              ...ga,
-              characters: [...ga.characters, newChar],
-            };
-          }
-          return ga;
-        });
-        setGameAccounts(updatedAccounts);
-      }
+      const newChar: DemoCharacter = {
+        id: `char_${Date.now()}`,
+        name: data.name,
+        characterClass: data.characterClass,
+        level: data.level,
+        stage: data.stage,
+      };
+      const updatedAccounts = gameAccounts.map((ga) => {
+        if (ga.id === targetAccountForChar.id) {
+          return {
+            ...ga,
+            characters: [...ga.characters, newChar],
+          };
+        }
+        return ga;
+      });
+      setGameAccounts(updatedAccounts);
       return;
     }
 
-    if (!userProfile) return;
+    const activeUser = userProfile || getActiveLocalSession();
+    if (!activeUser) return;
 
-    if (characterToEdit) {
-      const updatedUser = await updateCharacterInGameAccount(
-        userProfile,
-        targetAccountForChar.id,
-        characterToEdit.id,
-        data
-      );
-      setGameAccounts([...(updatedUser.gameAccounts || [])]);
-    } else {
-      const res = await addCharacterToGameAccount(
-        userProfile,
-        targetAccountForChar.id,
-        data
-      );
-      setGameAccounts([...(res.updatedUser.gameAccounts || [])]);
+    const res = await addCharacterToGameAccount(
+      activeUser,
+      targetAccountForChar.id,
+      data
+    );
+    setGameAccounts([...(res.updatedUser.gameAccounts || [])]);
+    if (refreshProfile) {
+      try {
+        await refreshProfile();
+      } catch {
+        // ignora erro de rede
+      }
     }
   };
 
-  // Exclusão de Conta ou Personagem
+  // Exclusão de Conta de Jogo
   const handleConfirmDelete = async () => {
     if (!deleteConfirm) return;
 
     try {
-      if (deleteConfirm.type === 'account') {
-        if (demoSession) {
-          setGameAccounts(gameAccounts.filter((ga) => ga.id !== deleteConfirm.accountId));
-        } else if (userProfile) {
-          const updatedUser = await deleteGameAccount(userProfile, deleteConfirm.accountId);
+      if (demoSession) {
+        setGameAccounts(gameAccounts.filter((ga) => ga.id !== deleteConfirm.accountId));
+      } else {
+        const activeUser = userProfile || getActiveLocalSession();
+        if (activeUser) {
+          const updatedUser = await deleteGameAccount(activeUser, deleteConfirm.accountId);
           setGameAccounts([...(updatedUser.gameAccounts || [])]);
-        }
-      } else if (deleteConfirm.type === 'character' && deleteConfirm.characterId) {
-        if (demoSession) {
-          const updated = gameAccounts.map((ga) => {
-            if (ga.id === deleteConfirm.accountId) {
-              return {
-                ...ga,
-                characters: ga.characters.filter((c) => c.id !== deleteConfirm.characterId),
-              };
+          if (refreshProfile) {
+            try {
+              await refreshProfile();
+            } catch {
+              // ignora erro
             }
-            return ga;
-          });
-          setGameAccounts(updated);
-        } else if (userProfile) {
-          const updatedUser = await deleteCharacterFromGameAccount(
-            userProfile,
-            deleteConfirm.accountId,
-            deleteConfirm.characterId
-          );
-          setGameAccounts([...(updatedUser.gameAccounts || [])]);
+          }
         }
       }
       setDeleteConfirm(null);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Falha na exclusão.';
+      const msg = err instanceof Error ? err.message : 'Falha na exclusão da conta de jogo.';
       alert(msg);
     }
   };
@@ -634,7 +633,7 @@ export const PlayerAreaPage: React.FC = () => {
                   </h3>
                 </div>
                 <p className="text-xs text-[#9c9484] mt-0.5">
-                  Gerencie seus logins de acesso ao cliente de jogo e os personagens criados em cada conta (até 4 personagens por conta).
+                  Gerencie seus logins de acesso ao cliente de jogo. A evolução, troca de classe e exclusão de personagens ocorrem exclusivamente dentro do jogo.
                 </p>
               </div>
 
@@ -658,7 +657,7 @@ export const PlayerAreaPage: React.FC = () => {
                   Nenhuma conta de jogo cadastrada
                 </h4>
                 <p className="text-xs text-neutral-400 max-w-md mx-auto mb-5">
-                  Crie sua primeira conta de jogo para poder criar seus personagens e se conectar ao servidor Artemis.
+                  Crie sua primeira conta de jogo para poder conectar-se ao servidor Artemis e criar seus guerreiros.
                 </p>
                 <button
                   onClick={() => {
@@ -699,8 +698,13 @@ export const PlayerAreaPage: React.FC = () => {
                               <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
                                 {account.status === 'active' ? 'Ativa no Servidor' : account.status}
                               </span>
-                              <span className="text-[10px] font-mono text-neutral-400 bg-neutral-900 px-2 py-0.5 rounded border border-neutral-800">
-                                PIN: {account.numericPin ? '••••••' : '123456'}
+                              {/* PIN de 4 Dígitos */}
+                              <span
+                                className="text-[10px] font-mono text-neutral-300 bg-neutral-900 px-2.5 py-0.5 rounded border border-neutral-800 flex items-center gap-1"
+                                title="Sub-senha numérica de 4 dígitos utilizada no jogo"
+                              >
+                                <KeyRound className="w-3 h-3 text-[#ffd978]" />
+                                <span>PIN: <strong className="text-[#ffd978]">{account.numericPin ? String(account.numericPin).slice(0, 4) : '1234'}</strong></span>
                               </span>
                             </div>
                             <p className="text-[11px] text-[#9c9484] mt-0.5">
@@ -714,7 +718,6 @@ export const PlayerAreaPage: React.FC = () => {
                           <button
                             onClick={() => {
                               setTargetAccountForChar(account);
-                              setCharacterToEdit(null);
                               setIsCharacterModalOpen(true);
                             }}
                             disabled={isAccountFull}
@@ -731,7 +734,7 @@ export const PlayerAreaPage: React.FC = () => {
                               setIsAccountModalOpen(true);
                             }}
                             className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 text-xs flex items-center gap-1 cursor-pointer transition-colors"
-                            title="Editar senha, PIN ou anotações da conta"
+                            title="Editar senha, PIN de 4 dígitos ou anotações da conta"
                           >
                             <Settings className="w-4 h-4 text-[#ffd978]" />
                             <span className="hidden sm:inline">Configurações</span>
@@ -740,7 +743,6 @@ export const PlayerAreaPage: React.FC = () => {
                           <button
                             onClick={() => {
                               setDeleteConfirm({
-                                type: 'account',
                                 accountId: account.id,
                                 name: account.username,
                               });
@@ -806,43 +808,23 @@ export const PlayerAreaPage: React.FC = () => {
                                     </p>
                                   </div>
 
+                                  {/* Rodapé do Personagem: apenas Ver Atributos, edição/exclusão exclusivamente in-game */}
                                   <div className="pt-2 border-t border-neutral-800/80 flex items-center justify-between text-xs">
                                     <button
                                       onClick={() => setSelectedCharacter(char)}
                                       className="text-[11px] text-[#ffd978] hover:text-white cursor-pointer font-serif flex items-center gap-1 transition-colors"
                                       title="Ver atributos e estatísticas de combate"
                                     >
-                                      <span>Atributos</span>
+                                      <span>Ver Atributos</span>
                                       <ChevronRight className="w-3 h-3 text-[#ffd978]" />
                                     </button>
 
-                                    <div className="flex items-center gap-1">
-                                      <button
-                                        onClick={() => {
-                                          setTargetAccountForChar(account);
-                                          setCharacterToEdit(char);
-                                          setIsCharacterModalOpen(true);
-                                        }}
-                                        className="p-1 rounded text-neutral-400 hover:text-[#ffd978] hover:bg-neutral-800 transition-colors cursor-pointer"
-                                        title="Editar personagem"
-                                      >
-                                        <Edit3 className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button
-                                        onClick={() => {
-                                          setDeleteConfirm({
-                                            type: 'character',
-                                            accountId: account.id,
-                                            characterId: char.id,
-                                            name: char.name,
-                                          });
-                                        }}
-                                        className="p-1 rounded text-neutral-400 hover:text-red-400 hover:bg-red-950/40 transition-colors cursor-pointer"
-                                        title="Excluir personagem"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
+                                    <span
+                                      className="text-[10px] text-neutral-500 font-sans italic"
+                                      title="Evolução, reset e exclusão de personagem são realizados exclusivamente dentro do jogo"
+                                    >
+                                      No Jogo
+                                    </span>
                                   </div>
                                 </div>
                               );
@@ -854,7 +836,6 @@ export const PlayerAreaPage: React.FC = () => {
                                 key={`empty_${account.id}_${slotIdx}`}
                                 onClick={() => {
                                   setTargetAccountForChar(account);
-                                  setCharacterToEdit(null);
                                   setIsCharacterModalOpen(true);
                                 }}
                                 className="p-4 rounded-xl border border-dashed border-neutral-800 hover:border-[#c99738]/60 bg-[#0f131c]/50 hover:bg-[#141924]/50 transition-all flex flex-col items-center justify-center text-center space-y-2 min-h-[130px] cursor-pointer group"
@@ -880,41 +861,6 @@ export const PlayerAreaPage: React.FC = () => {
                 })}
               </div>
             )}
-          </div>
-
-          {/* Histórico Demonstrativo de Sessões */}
-          <div className="medieval-panel rounded-2xl p-6 border border-neutral-800">
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-neutral-800">
-              <History className="w-5 h-5 text-[#ffd978]" />
-              <h3 className="font-serif font-bold text-lg text-[#f5efe2]">
-                Histórico de Atividades da Conta
-              </h3>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#121620] text-[#ffd978] font-serif uppercase tracking-wider">
-                  <tr>
-                    <th className="py-2.5 px-4">Data / Hora</th>
-                    <th className="py-2.5 px-4">Ação Registrada</th>
-                    <th className="py-2.5 px-4">IP / Origem</th>
-                    <th className="py-2.5 px-4">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-800/60 font-sans">
-                  {mockAccountActivities.map((act) => (
-                    <tr key={act.id} className="hover:bg-neutral-800/20">
-                      <td className="py-2.5 px-4 font-mono text-neutral-400">{act.date}</td>
-                      <td className="py-2.5 px-4 text-[#ede3cc] font-medium">{act.event}</td>
-                      <td className="py-2.5 px-4 font-mono text-neutral-400">{act.ipMasked}</td>
-                      <td className="py-2.5 px-4">
-                        <span className="text-emerald-400 font-semibold">{act.status}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </div>
         </div>
       ) : (
@@ -1334,20 +1280,18 @@ export const PlayerAreaPage: React.FC = () => {
         onSave={handleSaveGameAccount}
       />
 
-      {/* Modal de Criar/Editar Personagem */}
+      {/* Modal de Criar Personagem Inicial na Conta de Jogo */}
       <GameCharacterModal
         isOpen={isCharacterModalOpen}
         onClose={() => {
           setIsCharacterModalOpen(false);
           setTargetAccountForChar(null);
-          setCharacterToEdit(null);
         }}
         targetAccount={targetAccountForChar}
-        characterToEdit={characterToEdit}
         onSave={handleSaveCharacter}
       />
 
-      {/* Modal de Confirmação de Exclusão */}
+      {/* Modal de Confirmação de Exclusão de Conta de Jogo */}
       {deleteConfirm && (
         <div
           className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
@@ -1363,21 +1307,13 @@ export const PlayerAreaPage: React.FC = () => {
               </span>
               <div>
                 <h4 className="font-serif font-bold text-base text-[#f5efe2]">
-                  {deleteConfirm.type === 'account' ? 'Excluir Conta de Jogo' : 'Excluir Personagem'}
+                  Excluir Conta de Jogo
                 </h4>
                 <p className="text-[11px] text-neutral-400">Ação irreversível no servidor</p>
               </div>
             </div>
             <p className="text-xs text-[#d6cebe] mb-4 leading-relaxed">
-              {deleteConfirm.type === 'account' ? (
-                <>
-                  Tem certeza que deseja apagar a conta de jogo <strong className="text-red-300 font-mono">{deleteConfirm.name}</strong> e todos os personagens vinculados a ela?
-                </>
-              ) : (
-                <>
-                  Tem certeza que deseja apagar o personagem <strong className="text-red-300 font-serif">{deleteConfirm.name}</strong>?
-                </>
-              )}
+              Tem certeza que deseja apagar a conta de jogo <strong className="text-red-300 font-mono">{deleteConfirm.name}</strong> e todos os personagens vinculados a ela?
             </p>
             <div className="flex items-center justify-end gap-2.5">
               <button

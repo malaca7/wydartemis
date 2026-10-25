@@ -8,8 +8,14 @@ import {
   AlertCircle,
   Loader2,
   CheckCircle2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import type { GameAccount } from '../../types';
+import {
+  validateGameAccountPin,
+  validateGameAccountUsername,
+} from '../../utils/gameAccountRules';
 
 interface GameAccountModalProps {
   isOpen: boolean;
@@ -31,7 +37,8 @@ export const GameAccountModal: React.FC<GameAccountModalProps> = ({
 }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [numericPin, setNumericPin] = useState('123456');
+  const [showPassword, setShowPassword] = useState(false);
+  const [numericPin, setNumericPin] = useState('1234');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -43,16 +50,17 @@ export const GameAccountModal: React.FC<GameAccountModalProps> = ({
     if (accountToEdit) {
       setUsername(accountToEdit.username);
       setPassword(accountToEdit.password || '');
-      setNumericPin(accountToEdit.numericPin || '123456');
+      setNumericPin(accountToEdit.numericPin ? String(accountToEdit.numericPin).slice(0, 4) : '1234');
       setNotes(accountToEdit.notes || '');
     } else {
       setUsername('');
       setPassword('');
-      setNumericPin('123456');
+      setNumericPin('1234');
       setNotes('');
     }
     setErrorMsg(null);
     setSuccessMsg(null);
+    setShowPassword(false);
   }, [accountToEdit, isOpen]);
 
   if (!isOpen) return null;
@@ -62,27 +70,25 @@ export const GameAccountModal: React.FC<GameAccountModalProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    // Validações
+    // Validações de usuário caso seja criação
     if (!isEditMode) {
-      const cleanUsername = username.trim().toLowerCase();
-      if (!cleanUsername || cleanUsername.length < 4 || cleanUsername.length > 16) {
-        setErrorMsg('O login da conta de jogo deve conter entre 4 e 16 caracteres.');
-        return;
-      }
-      if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
-        setErrorMsg('O login pode conter apenas letras, números e sublinhados (_).');
+      const userVal = validateGameAccountUsername(username);
+      if (!userVal.valid) {
+        setErrorMsg(userVal.error || 'O login da conta de jogo deve conter entre 4 e 16 caracteres.');
         return;
       }
     }
 
+    // Validação estrita de PIN com 4 dígitos numéricos
     const cleanPin = numericPin.trim();
-    if (cleanPin && !/^\d{6}$/.test(cleanPin)) {
-      setErrorMsg('A sub-senha (PIN) deve possuir exatamente 6 dígitos numéricos.');
+    const pinVal = validateGameAccountPin(cleanPin);
+    if (!pinVal.valid) {
+      setErrorMsg(pinVal.error || 'A sub-senha (PIN) deve conter exatamente 4 dígitos numéricos (apenas números).');
       return;
     }
 
-    if (password && password.trim().length < 4) {
-      setErrorMsg('A senha deve possuir ao menos 4 dígitos.');
+    if (password && password.trim().length > 0 && password.trim().length < 4) {
+      setErrorMsg('A senha da conta de jogo deve possuir ao menos 4 dígitos.');
       return;
     }
 
@@ -90,9 +96,9 @@ export const GameAccountModal: React.FC<GameAccountModalProps> = ({
       setIsSubmitting(true);
       await onSave({
         username: username.trim().toLowerCase(),
-        password: password.trim() || undefined,
-        numericPin: cleanPin || '123456',
-        notes: notes.trim() || undefined,
+        password: password.trim() ? password.trim() : undefined,
+        numericPin: cleanPin,
+        notes: notes.trim() ? notes.trim() : undefined,
       });
 
       setSuccessMsg(
@@ -103,7 +109,7 @@ export const GameAccountModal: React.FC<GameAccountModalProps> = ({
 
       setTimeout(() => {
         onClose();
-      }, 1000);
+      }, 700);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao processar conta de jogo.';
       setErrorMsg(msg);
@@ -132,7 +138,7 @@ export const GameAccountModal: React.FC<GameAccountModalProps> = ({
               </h3>
               <p className="text-[11px] text-neutral-400">
                 {isEditMode
-                  ? `Configurações da conta ${accountToEdit?.username}`
+                  ? `Configurações de ${accountToEdit?.username}`
                   : 'Acesso direto ao cliente de jogo Artemis'}
               </p>
             </div>
@@ -192,37 +198,48 @@ export const GameAccountModal: React.FC<GameAccountModalProps> = ({
             <div className="relative">
               <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required={!isEditMode}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={isEditMode ? 'Deixe em branco para manter a atual' : '••••••••'}
-                className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[#11141c] border border-neutral-800 text-xs text-[#ede3cc] focus:outline-none focus:border-[#c99738]"
+                className="w-full pl-10 pr-10 py-2.5 rounded-lg bg-[#11141c] border border-neutral-800 text-xs text-[#ede3cc] focus:outline-none focus:border-[#c99738]"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-[#ffd978] transition-colors cursor-pointer"
+                title={showPassword ? 'Ocultar senha' : 'Exibir senha'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
             <p className="text-[10px] text-neutral-400 mt-1">
-              Senha utilizada no cliente de jogo (mínimo 4 caracteres).
+              Senha utilizada para autenticar no cliente de jogo (mínimo 4 caracteres).
             </p>
           </div>
 
           <div>
-            <label className="block text-xs font-serif font-bold text-[#d6cebe] uppercase tracking-wider mb-1.5">
-              Sub-senha Numérica (PIN de 6 Dígitos) *
+            <label className="block text-xs font-serif font-bold text-[#d6cebe] uppercase tracking-wider mb-1.5 flex items-center justify-between">
+              <span>Sub-senha Numérica (PIN de 4 Dígitos) *</span>
+              <span className="text-[10px] text-[#ffd978] font-mono lowercase">apenas 4 números</span>
             </label>
             <div className="relative">
               <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
               <input
                 type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 required
-                maxLength={6}
+                maxLength={4}
                 value={numericPin}
-                onChange={(e) => setNumericPin(e.target.value.replace(/\D/g, ''))}
-                placeholder="123456"
-                className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[#11141c] border border-neutral-800 text-xs font-mono text-[#ffd978] tracking-widest focus:outline-none focus:border-[#c99738]"
+                onChange={(e) => setNumericPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="1234"
+                className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[#11141c] border border-neutral-800 text-sm font-mono text-[#ffd978] tracking-widest focus:outline-none focus:border-[#c99738]"
               />
             </div>
             <p className="text-[10px] text-neutral-400 mt-1">
-              Sub-senha numérica para apagar personagens ou destrancar baús no jogo.
+              Sub-senha de exatamente 4 dígitos numéricos para destrancar baús e operações no jogo.
             </p>
           </div>
 
