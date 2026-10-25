@@ -29,6 +29,12 @@ import {
   isAccountAdmin,
   AUTHORIZED_ADMIN_EMAILS,
   AUTHORIZED_ADMIN_USERNAMES,
+  getAuthorizedAdminEmails,
+  addAuthorizedAdminEmail,
+  removeAuthorizedAdminEmail,
+  getMasterPasskey,
+  setMasterPasskey,
+  DEFAULT_ADMIN_PASSKEY,
 } from '../utils/adminAuth.ts';
 
 test('Ranking: sorts characters by score descending by default', () => {
@@ -362,6 +368,29 @@ test('Admin Auth: role admin or administrator grants immediate admin status', ()
   assert.equal(isAccountAdmin('outro@email.com', 'OutroUser', 'admin'), true);
   assert.equal(isAccountAdmin(null, null, 'administrator'), true);
 });
+
+test('Admin Access Control: getAuthorizedAdminEmails returns official default list', () => {
+  const emails = getAuthorizedAdminEmails();
+  assert.ok(emails.includes('malaca7x@gmail.com'));
+  assert.ok(emails.includes('admin@wydartemis.com.br'));
+});
+
+test('Admin Access Control: prevents revoking permissions of primary administrator MALACA', () => {
+  assert.throws(
+    () => removeAuthorizedAdminEmail('malaca7x@gmail.com'),
+    /Não é permitido revogar os privilégios do Administrador Geral/
+  );
+});
+
+test('Admin Access Control: validates master passkey defaults and constraints', () => {
+  const passkey = getMasterPasskey();
+  assert.equal(passkey, DEFAULT_ADMIN_PASSKEY);
+  assert.throws(
+    () => setMasterPasskey('123'),
+    /A nova chave mestra deve conter ao menos 6 caracteres/
+  );
+});
+
 
 
 

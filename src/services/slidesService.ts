@@ -17,7 +17,7 @@ import { initialDefaultSlides } from '../data/slidesData';
 
 const SLIDES_COLLECTION = 'slides';
 const LOCAL_STORAGE_KEY = 'wyd_artemis_slides_store';
-import { isAccountAdmin, AUTHORIZED_ADMIN_EMAILS } from '../utils/adminAuth';
+import { isAccountAdmin, AUTHORIZED_ADMIN_EMAILS, getMasterPasskey } from '../utils/adminAuth';
 export { AUTHORIZED_ADMIN_EMAILS };
 
 const ADMIN_PASSKEY_KEY = 'wydartemis_admin_key';
@@ -70,7 +70,8 @@ export function isUserAdmin(
   }
   if (typeof window !== 'undefined') {
     const passkey = sessionStorage.getItem(ADMIN_PASSKEY_KEY);
-    if (passkey === 'artemis_admin_2026' || passkey === 'malaca_master') {
+    const masterKey = getMasterPasskey();
+    if (passkey === masterKey || passkey === 'artemis_admin_2026' || passkey === 'malaca_master') {
       return true;
     }
   }
@@ -82,7 +83,8 @@ export function isUserAdmin(
  */
 export function setAdminPasskey(passkey: string): boolean {
   if (typeof window === 'undefined') return false;
-  if (passkey === 'artemis_admin_2026' || passkey === 'malaca_master') {
+  const masterKey = getMasterPasskey();
+  if (passkey === masterKey || passkey === 'artemis_admin_2026' || passkey === 'malaca_master') {
     sessionStorage.setItem(ADMIN_PASSKEY_KEY, passkey);
     return true;
   }

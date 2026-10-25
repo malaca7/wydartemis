@@ -37,7 +37,7 @@ import { initialServerStatus } from '../data/serverStatusData';
 // Controle de Conectividade e Circuito Rápido (Circuit Breaker & Timeouts)
 // ---------------------------------------------------------------------------
 
-let isFirestoreAvailable = true;
+export let isFirestoreAvailable = true;
 let isAuthAvailable = true;
 
 /**
@@ -75,7 +75,7 @@ export async function withTimeout<T>(
  * Inspeciona mensagens de erro do Firestore para desativar chamadas síncronas
  * se a API Cloud Firestore estiver desativada ou com acesso negado no projeto.
  */
-function recordFirestoreError(err: unknown): void {
+export function recordFirestoreError(err: unknown): void {
   const msg = err instanceof Error ? err.message : String(err);
   if (
     msg.includes('PERMISSION_DENIED') ||

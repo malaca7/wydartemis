@@ -18,9 +18,9 @@ import {
   Search,
   Filter,
   X,
-  ExternalLink,
-  Download,
-  Upload,
+  Users,
+  Server,
+  Crown,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import type { BannerSlide, SlideStatus } from '../types';
@@ -34,15 +34,31 @@ import {
   clearAdminPasskey,
 } from '../services/slidesService';
 import { initialDefaultSlides } from '../data/slidesData';
-import { exportSystemBackup, restoreSystemBackup } from '../services/backupService';
+import {
+  fetchAllAccounts,
+  saveOrUpdateAccount,
+  deleteAccount,
+  resetAccountPassword,
+  type StoredAdminAccountDoc,
+} from '../services/adminUserService';
 import { SlideEditModal } from '../components/admin/SlideEditModal';
 import { SlidePreviewModal } from '../components/admin/SlidePreviewModal';
+import { UserManagementTab } from '../components/admin/UserManagementTab';
+import { AccessManagementTab } from '../components/admin/AccessManagementTab';
+import { ServerSettingsTab } from '../components/admin/ServerSettingsTab';
 
 export const AdminSlidesPage: React.FC = () => {
   const { currentUser, userProfile } = useAuth();
+  const [activeTab, setActiveTab] = useState<'slides' | 'users' | 'access' | 'server'>('slides');
+
+  // Slides State
   const [slides, setSlides] = useState<BannerSlide[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Accounts State
+  const [accounts, setAccounts] = useState<StoredAdminAccountDoc[]>([]);
+  const [isAccountsLoading, setIsAccountsLoading] = useState(false);
 
   // Authentication & Passkey State
   const [isLocalAdminUnlocked, setIsLocalAdminUnlocked] = useState(false);
@@ -51,17 +67,30 @@ export const AdminSlidesPage: React.FC = () => {
   const [inputPasskey, setInputPasskey] = useState('');
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
 
-  // Filter & Search
+  // Filter & Search (Slides)
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | SlideStatus>('all');
 
-  // Modals
+  // Modals (Slides)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingSlide, setEditingSlide] = useState<BannerSlide | null>(null);
   const [previewSlide, setPreviewSlide] = useState<BannerSlide | null>(null);
   const [slideToDelete, setSlideToDelete] = useState<BannerSlide | null>(null);
 
-  // Load slides on mount
+  // Carrega contas
+  const loadAccounts = useCallback(async () => {
+    setIsAccountsLoading(true);
+    try {
+      const list = await fetchAllAccounts();
+      setAccounts(list);
+    } catch (err) {
+      console.warn('Erro ao carregar lista de contas:', err);
+    } finally {
+      setIsAccountsLoading(false);
+    }
+  }, []);
+
+  // Sincronização inicial
   useEffect(() => {
     let active = true;
     fetchSlides()
@@ -78,10 +107,13 @@ export const AdminSlidesPage: React.FC = () => {
           setFeedback({ message: 'Falha ao sincronizar com o banco de dados.', type: 'error' });
         }
       });
+
+    loadAccounts();
+
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadAccounts]);
 
   const handleAdminPasskeySubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +133,37 @@ export const AdminSlidesPage: React.FC = () => {
     setFeedback({ message: 'Sessão administrativa encerrada.', type: 'success' });
   };
 
-  // Filtered Slides
+  // ---------------------------------------------------------------------------
+  // Ações de Usuários & Contas
+  // ---------------------------------------------------------------------------
+  const handleSaveAccount = async (
+    account: Partial<StoredAdminAccountDoc> & { email: string; displayName: string },
+    password?: string
+  ) => {
+    await saveOrUpdateAccount(account, password, userProfile?.displayName || 'MALACA');
+    await loadAccounts();
+    setFeedback({ message: `Conta ${account.displayName} salva com sucesso!`, type: 'success' });
+  };
+
+  const handleDeleteAccount = async (uid: string) => {
+    await deleteAccount(uid, userProfile?.displayName || 'MALACA');
+    await loadAccounts();
+    setFeedback({ message: 'Conta de usuário excluída com sucesso.', type: 'success' });
+  };
+
+  const handleResetAccountPassword = async (uid: string, newPass: string) => {
+    await resetAccountPassword(uid, newPass, userProfile?.displayName || 'MALACA');
+    await loadAccounts();
+    setFeedback({ message: 'Senha da conta atualizada com sucesso!', type: 'success' });
+  };
+
+  const handleNotify = (message: string, type: 'success' | 'error') => {
+    setFeedback({ message, type });
+  };
+
+  // ---------------------------------------------------------------------------
+  // Ações de Slides
+  // ---------------------------------------------------------------------------
   const filteredSlides = useMemo(() => {
     return slides
       .filter((s) => {
@@ -119,15 +181,13 @@ export const AdminSlidesPage: React.FC = () => {
       .sort((a, b) => a.order - b.order);
   }, [slides, statusFilter, searchQuery]);
 
-  // Quick Stats
-  const stats = useMemo(() => {
+  const slideStats = useMemo(() => {
     const published = slides.filter((s) => s.status === 'published').length;
     const drafts = slides.filter((s) => s.status === 'draft').length;
     const inactive = slides.filter((s) => s.status === 'inactive').length;
     return { total: slides.length, published, drafts, inactive };
   }, [slides]);
 
-  // CRUD Actions
   const handleCreateNew = () => {
     setEditingSlide(null);
     setIsEditModalOpen(true);
@@ -149,130 +209,88 @@ export const AdminSlidesPage: React.FC = () => {
       createdAt: nowIso,
       updatedAt: nowIso,
     };
-
     try {
       await saveSlide(duplicated);
-      setSlides((prev) => [...prev, duplicated]);
-      setFeedback({ message: `Slide duplicado com sucesso como rascunho: "${duplicated.title}"`, type: 'success' });
+      const updated = [...slides, duplicated];
+      setSlides(updated);
+      setFeedback({ message: `Slide duplicado como rascunho com sucesso!`, type: 'success' });
     } catch {
-      setFeedback({ message: 'Erro ao duplicar slide.', type: 'error' });
+      setFeedback({ message: 'Falha ao duplicar slide.', type: 'error' });
     }
-  }, [slides.length]);
+  }, [slides]);
 
-  const handleToggleStatus = useCallback(async (slide: BannerSlide) => {
-    const newStatus: SlideStatus = slide.status === 'published' ? 'inactive' : 'published';
-    const nowIso = new Date().toISOString();
-    const updated: BannerSlide = {
-      ...slide,
-      status: newStatus,
-      updatedAt: nowIso,
-    };
-
+  const handleSaveSlide = async (savedSlide: BannerSlide) => {
     try {
-      await saveSlide(updated);
-      setSlides((prev) => prev.map((s) => (s.id === slide.id ? updated : s)));
-      setFeedback({
-        message: `Status do slide "${slide.title}" alterado para ${newStatus === 'published' ? 'Publicado' : 'Inativo'}.`,
-        type: 'success',
-      });
+      await saveSlide(savedSlide);
+      const exists = slides.some((s) => s.id === savedSlide.id);
+      let updated: BannerSlide[];
+      if (exists) {
+        updated = slides.map((s) => (s.id === savedSlide.id ? savedSlide : s));
+      } else {
+        updated = [...slides, savedSlide];
+      }
+      setSlides(updated);
+      setIsEditModalOpen(false);
+      setEditingSlide(null);
+      setFeedback({ message: 'Slide salvo com sucesso!', type: 'success' });
     } catch {
-      setFeedback({ message: 'Erro ao atualizar status do slide.', type: 'error' });
+      setFeedback({ message: 'Erro ao salvar slide no banco de dados.', type: 'error' });
     }
-  }, []);
+  };
 
-  const handleMoveOrder = async (index: number, direction: 'up' | 'down') => {
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= filteredSlides.length) return;
-
-    const copy = [...slides];
-    const itemA = filteredSlides[index];
-    const itemB = filteredSlides[targetIndex];
-
-    const idxA = copy.findIndex((s) => s.id === itemA.id);
-    const idxB = copy.findIndex((s) => s.id === itemB.id);
-
-    const tempOrder = copy[idxA].order;
-    copy[idxA].order = copy[idxB].order;
-    copy[idxB].order = tempOrder;
-
-    copy.sort((a, b) => a.order - b.order);
-    setSlides(copy);
-
-    try {
-      await reorderSlides(copy);
-      setFeedback({ message: 'Ordem dos slides atualizada no servidor.', type: 'success' });
-    } catch {
-      setFeedback({ message: 'Falha ao reordenar slides.', type: 'error' });
-    }
+  const handleDeletePrompt = (slide: BannerSlide) => {
+    setSlideToDelete(slide);
   };
 
   const handleConfirmDelete = async () => {
     if (!slideToDelete) return;
     try {
       await deleteSlide(slideToDelete.id);
-      setSlides((prev) => prev.filter((s) => s.id !== slideToDelete.id));
-      setFeedback({ message: `Slide "${slideToDelete.title}" excluído com sucesso.`, type: 'success' });
-    } catch {
-      setFeedback({ message: 'Falha ao excluir slide.', type: 'error' });
-    } finally {
+      const remaining = slides.filter((s) => s.id !== slideToDelete.id);
+      setSlides(remaining);
       setSlideToDelete(null);
+      setFeedback({ message: 'Slide excluído com sucesso.', type: 'success' });
+    } catch {
+      setFeedback({ message: 'Erro ao excluir slide.', type: 'error' });
     }
   };
 
-  const handleSaveSlide = async (saved: BannerSlide) => {
-    await saveSlide(saved);
-    setSlides((prev) => {
-      const exists = prev.some((s) => s.id === saved.id);
-      if (exists) {
-        return prev.map((s) => (s.id === saved.id ? saved : s));
-      }
-      return [...prev, saved];
-    });
-    setFeedback({ message: `Slide "${saved.title}" salvo com sucesso!`, type: 'success' });
+  const handleMoveOrder = async (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= filteredSlides.length) return;
+
+    const newSorted = [...filteredSlides];
+    const temp = newSorted[index];
+    newSorted[index] = newSorted[targetIndex];
+    newSorted[targetIndex] = temp;
+
+    const reordered = newSorted.map((item, idx) => ({
+      ...item,
+      order: idx + 1,
+      updatedAt: new Date().toISOString(),
+    }));
+
+    setSlides(reordered);
+
+    try {
+      await reorderSlides(reordered);
+      setFeedback({ message: 'Ordenação dos slides atualizada!', type: 'success' });
+    } catch {
+      setFeedback({ message: 'Falha ao sincronizar ordenação com o banco.', type: 'error' });
+    }
   };
 
   const handleResetToOfficialPresets = async () => {
-    if (!window.confirm('Deseja restaurar os 5 banners oficiais iniciais do WYD Artemis?')) return;
     try {
       await reorderSlides(initialDefaultSlides);
       setSlides(initialDefaultSlides);
-      setFeedback({ message: 'Os 5 banners oficiais do WYD Artemis foram restaurados.', type: 'success' });
+      setFeedback({ message: 'Todos os 5 banners medievais oficiais foram restaurados com sucesso!', type: 'success' });
     } catch {
-      setFeedback({ message: 'Erro ao restaurar presets.', type: 'error' });
+      setFeedback({ message: 'Erro ao restaurar banners padrão.', type: 'error' });
     }
   };
 
-  const handleExportBackup = async () => {
-    try {
-      await exportSystemBackup();
-      setFeedback({ message: 'Backup JSON do sistema exportado com sucesso!', type: 'success' });
-    } catch {
-      setFeedback({ message: 'Falha ao exportar arquivo de backup.', type: 'error' });
-    }
-  };
-
-  const handleFileRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const result = await restoreSystemBackup(file);
-      if (result.success) {
-        setFeedback({ message: result.message, type: 'success' });
-        const reloaded = await fetchSlides();
-        setSlides(reloaded);
-      } else {
-        setFeedback({ message: result.message, type: 'error' });
-      }
-    } catch (err: unknown) {
-      setFeedback({
-        message: err instanceof Error ? err.message : 'Erro ao processar backup.',
-        type: 'error',
-      });
-    }
-    e.target.value = '';
-  };
-
-  // Se não estiver autorizado como admin, exibe formulário de acesso
+  // Se não estiver autorizado como admin, exibe formulário de acesso por chave
   if (!isAdminAuthorized) {
     return (
       <div className="pt-28 pb-20 px-4 sm:px-6 lg:px-8 max-w-md mx-auto">
@@ -341,9 +359,8 @@ export const AdminSlidesPage: React.FC = () => {
 
   return (
     <div className="pt-28 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      
       {/* Top Breadcrumb & Admin Badge */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2 text-xs text-[#9e9585]">
           <Link to="/" className="hover:text-[#ffd978]">Início</Link>
           <span>/</span>
@@ -353,9 +370,9 @@ export const AdminSlidesPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/40 text-[11px] font-semibold text-emerald-300">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/40 text-[11px] font-semibold text-emerald-300 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Admin Conectado: {activeAdminLabel}</span>
+            <span>Admin Conectado: <strong>{activeAdminLabel}</strong></span>
           </span>
 
           <button
@@ -367,65 +384,81 @@ export const AdminSlidesPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1b2232] border border-[#c99738]/40 text-xs text-[#ffd978] mb-2">
-            <Layers className="w-3.5 h-3.5 text-[#ffd978]" />
-            <span>Controle de Banners & Exibição</span>
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-serif font-bold gold-gradient-text tracking-wide">
-            Gerenciar Slides & Banners
-          </h1>
-          <p className="text-sm text-[#a8a090] mt-1">
-            Controle os banners panorâmicos exibidos na página inicial com suporte a agendamento, ordenação e publicação instantânea.
-          </p>
+      {/* Main Admin Header */}
+      <div className="mb-6">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1b2232] border border-[#c99738]/40 text-xs text-[#ffd978] mb-2">
+          <Crown className="w-3.5 h-3.5 text-[#ffd978]" />
+          <span>Controle Mestre do Servidor • WYD Artemis</span>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            onClick={handleExportBackup}
-            className="btn-medieval-secondary px-3.5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
-            title="Exportar backup completo do sistema em formato JSON"
-          >
-            <Download className="w-3.5 h-3.5 text-[#ffd978]" />
-            <span className="hidden sm:inline">Exportar Backup</span>
-          </button>
-
-          <label
-            className="btn-medieval-secondary px-3.5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
-            title="Restaurar backup a partir de arquivo JSON"
-          >
-            <Upload className="w-3.5 h-3.5 text-[#ffd978]" />
-            <span className="hidden sm:inline">Restaurar JSON</span>
-            <input
-              type="file"
-              accept=".json"
-              className="hidden"
-              onChange={handleFileRestore}
-            />
-          </label>
-
-          <button
-            onClick={handleResetToOfficialPresets}
-            className="btn-medieval-secondary px-3.5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
-            title="Restaura os 5 banners medievais originais"
-          >
-            <RefreshCw className="w-3.5 h-3.5 text-[#ffd978]" />
-            <span className="hidden md:inline">Restaurar 5 Banners</span>
-          </button>
-
-          <button
-            onClick={handleCreateNew}
-            className="btn-gold-primary px-4 py-2.5 rounded-xl text-xs sm:text-sm font-serif font-bold flex items-center gap-2 shadow-[0_4px_20px_rgba(201,151,56,0.35)] cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Novo Slide</span>
-          </button>
-        </div>
+        <h1 className="text-3xl sm:text-4xl font-serif font-bold gold-gradient-text tracking-wide">
+          Painel de Gerenciamento Administrativo
+        </h1>
+        <p className="text-sm text-[#a8a090] mt-1">
+          Controle centralizado de carrossel de banners, contas de jogadores, permissões administrativas e infraestrutura do reino.
+        </p>
       </div>
 
-      {/* Feedback Banner */}
+      {/* Navigation Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-neutral-800 mb-8 text-xs sm:text-sm">
+        <button
+          onClick={() => setActiveTab('slides')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-serif font-bold transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'slides'
+              ? 'btn-gold-primary shadow-[0_0_15px_rgba(255,217,120,0.25)]'
+              : 'bg-[#121622] text-[#d6cebe] hover:text-[#ffd978] border border-neutral-800'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>Banners & Carrossel</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/40">
+            {slides.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('users');
+            loadAccounts();
+          }}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-serif font-bold transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'users'
+              ? 'btn-gold-primary shadow-[0_0_15px_rgba(255,217,120,0.25)]'
+              : 'bg-[#121622] text-[#d6cebe] hover:text-[#ffd978] border border-neutral-800'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Contas & Usuários</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/40">
+            {accounts.length || '•'}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('access')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-serif font-bold transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'access'
+              ? 'btn-gold-primary shadow-[0_0_15px_rgba(255,217,120,0.25)]'
+              : 'bg-[#121622] text-[#d6cebe] hover:text-[#ffd978] border border-neutral-800'
+          }`}
+        >
+          <Shield className="w-4 h-4" />
+          <span>Acessos & Segurança</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('server')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-serif font-bold transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'server'
+              ? 'btn-gold-primary shadow-[0_0_15px_rgba(255,217,120,0.25)]'
+              : 'bg-[#121622] text-[#d6cebe] hover:text-[#ffd978] border border-neutral-800'
+          }`}
+        >
+          <Server className="w-4 h-4" />
+          <span>Servidor & Backups</span>
+        </button>
+      </div>
+
+      {/* Global Feedback Banner */}
       {feedback && (
         <div
           className={`p-4 mb-6 rounded-xl flex items-center justify-between gap-3 text-xs ${
@@ -451,243 +484,269 @@ export const AdminSlidesPage: React.FC = () => {
         </div>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <div className="p-4 rounded-xl bg-[#0f131c] border border-neutral-800">
-          <span className="text-[11px] text-[#8c8475] uppercase block font-semibold">Total de Slides</span>
-          <span className="text-2xl font-serif font-bold text-[#ffd978]">{stats.total}</span>
-        </div>
-        <div className="p-4 rounded-xl bg-[#0f131c] border border-neutral-800">
-          <span className="text-[11px] text-[#8c8475] uppercase block font-semibold">Publicados (Ativos)</span>
-          <span className="text-2xl font-serif font-bold text-emerald-400">{stats.published}</span>
-        </div>
-        <div className="p-4 rounded-xl bg-[#0f131c] border border-neutral-800">
-          <span className="text-[11px] text-[#8c8475] uppercase block font-semibold">Rascunhos</span>
-          <span className="text-2xl font-serif font-bold text-amber-400">{stats.drafts}</span>
-        </div>
-        <div className="p-4 rounded-xl bg-[#0f131c] border border-neutral-800">
-          <span className="text-[11px] text-[#8c8475] uppercase block font-semibold">Inativos</span>
-          <span className="text-2xl font-serif font-bold text-neutral-400">{stats.inactive}</span>
-        </div>
-      </div>
+      {/* TAB 1: Banners & Carrossel */}
+      {activeTab === 'slides' && (
+        <div>
+          {/* Header Actions for Slides */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="font-serif font-bold text-xl text-[#f5ebd6]">
+                Gerenciamento de Banners Panorâmicos
+              </h2>
+              <p className="text-xs text-neutral-400 mt-0.5">
+                Crie, ordene e configure agendamento dos slides da página inicial.
+              </p>
+            </div>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-[#111520] border border-neutral-800 mb-6">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Pesquisar por título, chamada ou botão..."
-            className="w-full pl-10 pr-4 py-2 rounded-lg bg-[#0a0d14] border border-neutral-700 text-xs text-[#f5ebd6] placeholder-neutral-500 focus:border-[#ffd978] focus:outline-none"
-          />
-        </div>
+            <button
+              onClick={handleCreateNew}
+              className="btn-gold-primary px-4 py-2.5 rounded-xl text-xs sm:text-sm font-serif font-bold flex items-center gap-2 shadow-[0_4px_20px_rgba(201,151,56,0.35)] cursor-pointer self-start sm:self-auto"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Novo Slide</span>
+            </button>
+          </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <span className="text-xs text-[#8c8475] shrink-0 flex items-center gap-1">
-            <Filter className="w-3.5 h-3.5" />
-            <span>Status:</span>
-          </span>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as 'all' | SlideStatus)}
-            className="px-3 py-1.5 rounded-lg bg-[#0a0d14] border border-neutral-700 text-xs text-[#f5ebd6] focus:border-[#ffd978] focus:outline-none cursor-pointer"
-          >
-            <option value="all">Todos os Status</option>
-            <option value="published">Apenas Publicados</option>
-            <option value="draft">Apenas Rascunhos</option>
-            <option value="inactive">Apenas Inativos</option>
-          </select>
-        </div>
-      </div>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            <div className="p-4 rounded-xl bg-[#0f131c] border border-neutral-800">
+              <span className="text-[11px] text-[#8c8475] uppercase block font-semibold">Total de Slides</span>
+              <span className="text-2xl font-serif font-bold text-[#ffd978]">{slideStats.total}</span>
+            </div>
+            <div className="p-4 rounded-xl bg-[#0f131c] border border-neutral-800">
+              <span className="text-[11px] text-emerald-400 uppercase block font-semibold">Publicados</span>
+              <span className="text-2xl font-serif font-bold text-emerald-400">{slideStats.published}</span>
+            </div>
+            <div className="p-4 rounded-xl bg-[#0f131c] border border-neutral-800">
+              <span className="text-[11px] text-amber-400 uppercase block font-semibold">Rascunhos</span>
+              <span className="text-2xl font-serif font-bold text-amber-400">{slideStats.drafts}</span>
+            </div>
+            <div className="p-4 rounded-xl bg-[#0f131c] border border-neutral-800">
+              <span className="text-[11px] text-neutral-400 uppercase block font-semibold">Inativos</span>
+              <span className="text-2xl font-serif font-bold text-neutral-400">{slideStats.inactive}</span>
+            </div>
+          </div>
 
-      {/* Slides Management Table / Cards */}
-      {isLoading ? (
-        <div className="p-12 text-center text-xs text-[#ffd978]">
-          <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
-          <span>Carregando slides do Firestore...</span>
-        </div>
-      ) : filteredSlides.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-[#0f131c] border border-neutral-800">
-          <Layers className="w-10 h-10 text-neutral-600 mx-auto mb-3" />
-          <h3 className="font-serif font-bold text-lg text-[#f5ebd6] mb-1">
-            Nenhum slide encontrado
-          </h3>
-          <p className="text-xs text-[#8c8475] mb-4">
-            {searchQuery || statusFilter !== 'all'
-              ? 'Tente remover os filtros de pesquisa.'
-              : 'Clique em "Novo Slide" para cadastrar o primeiro banner.'}
-          </p>
-          <button
-            onClick={handleCreateNew}
-            className="btn-gold-primary px-4 py-2 rounded-lg text-xs font-serif font-bold"
-          >
-            + Criar Novo Slide
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filteredSlides.map((slide, index) => {
-            const isFirst = index === 0;
-            const isLast = index === filteredSlides.length - 1;
+          {/* Filter Bar */}
+          <div className="p-4 rounded-2xl bg-[#0f131c] border border-neutral-800 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por título, subtítulo ou botão..."
+                className="w-full pl-9 pr-4 py-2 rounded-xl bg-[#141924] border border-neutral-700 text-xs text-[#f5ebd6] placeholder-neutral-500 focus:border-[#ffd978] focus:outline-none"
+              />
+            </div>
 
-            return (
-              <div
-                key={slide.id}
-                className="p-4 rounded-xl bg-[#0e121a] border border-neutral-800 hover:border-[#c99738]/50 transition-all flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 group"
-              >
-                {/* Left: Reordering, Thumbnail & Title */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto min-w-0">
-                  <div className="flex items-center gap-3 shrink-0">
-                    {/* Order controls */}
-                    <div className="flex flex-col items-center gap-1">
-                      <button
-                        onClick={() => handleMoveOrder(index, 'up')}
-                        disabled={isFirst}
-                        className="p-1 rounded bg-[#161b26] hover:bg-[#202838] text-neutral-400 hover:text-[#ffd978] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                        title="Mover para cima"
-                      >
-                        <ArrowUp className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="font-mono text-xs font-bold text-[#ffd978]">
-                        #{slide.order}
-                      </span>
-                      <button
-                        onClick={() => handleMoveOrder(index, 'down')}
-                        disabled={isLast}
-                        className="p-1 rounded bg-[#161b26] hover:bg-[#202838] text-neutral-400 hover:text-[#ffd978] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                        title="Mover para baixo"
-                      >
-                        <ArrowDown className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+              <Filter className="w-4 h-4 text-neutral-400 shrink-0 hidden sm:block" />
+              {(['all', 'published', 'draft', 'inactive'] as const).map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setStatusFilter(status)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-serif font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                    statusFilter === status
+                      ? 'bg-[#ffd978] text-[#0a0d14] font-bold shadow-sm'
+                      : 'bg-[#141924] text-neutral-400 hover:text-[#ffd978]'
+                  }`}
+                >
+                  {status === 'all' && 'Todos'}
+                  {status === 'published' && 'Publicados'}
+                  {status === 'draft' && 'Rascunhos'}
+                  {status === 'inactive' && 'Inativos'}
+                </button>
+              ))}
+            </div>
+          </div>
 
-                    {/* Thumbnail */}
-                    <div
-                      onClick={() => setPreviewSlide(slide)}
-                      className="relative w-28 h-16 sm:w-36 sm:h-20 md:w-40 md:h-22 rounded-lg overflow-hidden border border-[#c99738]/40 bg-black shrink-0 cursor-pointer group/thumb"
-                      title="Clique para ampliar pré-visualização"
-                    >
-                      <img
-                        src={slide.imageUrl}
-                        alt={slide.title}
-                        className="w-full h-full object-cover transition-transform group-hover/thumb:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity text-white">
-                        <Eye className="w-4 h-4" />
+          {/* Slide List */}
+          {isLoading ? (
+            <div className="p-12 text-center text-xs text-neutral-400">
+              <RefreshCw className="w-6 h-6 animate-spin text-[#ffd978] mx-auto mb-2" />
+              <span>Sincronizando slides com o banco de dados...</span>
+            </div>
+          ) : filteredSlides.length === 0 ? (
+            <div className="medieval-panel rounded-2xl p-12 text-center border border-neutral-800">
+              <Layers className="w-10 h-10 text-neutral-600 mx-auto mb-2" />
+              <h3 className="font-serif font-bold text-sm text-[#f5ebd6]">Nenhum slide encontrado</h3>
+              <p className="text-xs text-neutral-400 mt-1">
+                Ajuste os filtros de busca ou crie um novo slide para exibi-lo no carrossel.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredSlides.map((slide, index) => {
+                const isFirst = index === 0;
+                const isLast = index === filteredSlides.length - 1;
+
+                return (
+                  <div
+                    key={slide.id}
+                    className="medieval-panel rounded-2xl p-4 sm:p-5 border border-neutral-800 hover:border-[#c99738]/50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  >
+                    <div className="flex items-center gap-4">
+                      {/* Drag / Order controls */}
+                      <div className="flex flex-col items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => handleMoveOrder(index, 'up')}
+                          disabled={isFirst}
+                          className={`p-1 rounded hover:bg-neutral-800 transition-colors ${
+                            isFirst ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer text-[#ffd978]'
+                          }`}
+                          title="Mover para cima"
+                        >
+                          <ArrowUp className="w-4 h-4" />
+                        </button>
+                        <span className="text-xs font-mono font-bold text-[#c99738]">
+                          #{slide.order}
+                        </span>
+                        <button
+                          onClick={() => handleMoveOrder(index, 'down')}
+                          disabled={isLast}
+                          className={`p-1 rounded hover:bg-neutral-800 transition-colors ${
+                            isLast ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer text-[#ffd978]'
+                          }`}
+                          title="Mover para baixo"
+                        >
+                          <ArrowDown className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Image Thumbnail */}
+                      <div className="w-24 sm:w-32 h-16 sm:h-20 rounded-xl overflow-hidden bg-black shrink-0 border border-neutral-700 relative">
+                        <img
+                          src={slide.imageUrl}
+                          alt={slide.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src =
+                              `${import.meta.env.BASE_URL}assets/artemis-logo.jpg`;
+                          }}
+                        />
+                        <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-black/70 text-white">
+                          {slide.alignment}
+                        </span>
+                      </div>
+
+                      {/* Info */}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-serif font-bold text-base text-[#f5ebd6] truncate">
+                            {slide.title}
+                          </h4>
+
+                          {/* Status Badge */}
+                          <span
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                              slide.status === 'published'
+                                ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-800/40'
+                                : slide.status === 'draft'
+                                ? 'bg-amber-950/70 text-amber-300 border border-amber-800/40'
+                                : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                            }`}
+                          >
+                            {slide.status === 'published' && 'Publicado'}
+                            {slide.status === 'draft' && 'Rascunho'}
+                            {slide.status === 'inactive' && 'Inativo'}
+                          </span>
+                        </div>
+
+                        {slide.subtitle && (
+                          <p className="text-xs text-[#a8a090] truncate mt-0.5">
+                            {slide.subtitle}
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] text-neutral-500 mt-2 font-mono">
+                          {slide.buttonText && (
+                            <span className="text-[#ffd978]">
+                              Botão: <strong>{slide.buttonText}</strong>
+                            </span>
+                          )}
+                          {(slide.startDate || slide.endDate) && (
+                            <span className="flex items-center gap-1 text-neutral-400">
+                              <Clock className="w-3 h-3 text-amber-400" />
+                              <span>
+                                {slide.startDate ? new Date(slide.startDate).toLocaleDateString() : 'Início'} até{' '}
+                                {slide.endDate ? new Date(slide.endDate).toLocaleDateString() : 'Sempre'}
+                              </span>
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Title & Info */}
-                  <div className="space-y-1 min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-serif font-bold text-sm sm:text-base text-[#f5ebd6] truncate">
-                        {slide.title}
-                      </h3>
-                      {slide.subtitle && (
-                        <span className="text-xs text-[#a8a090] hidden md:inline truncate">
-                          — {slide.subtitle}
-                        </span>
-                      )}
+                    {/* Actions */}
+                    <div className="flex items-center gap-1.5 self-end md:self-center shrink-0">
+                      <button
+                        onClick={() => setPreviewSlide(slide)}
+                        className="p-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors cursor-pointer"
+                        title="Pré-visualizar banner"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => handleDuplicate(slide)}
+                        className="p-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors cursor-pointer"
+                        title="Duplicar slide"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => handleEdit(slide)}
+                        className="btn-medieval-secondary px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
+                        title="Editar conteúdo do slide"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 text-[#ffd978]" />
+                        <span>Editar</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleDeletePrompt(slide)}
+                        className="p-2 rounded-lg bg-red-950/30 hover:bg-red-900/50 text-red-300 border border-red-800/40 transition-colors cursor-pointer"
+                        title="Excluir slide"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-[#8c8475]">
-                      {slide.buttonText && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-950/50 text-blue-300 border border-blue-800/40 text-[10px] max-w-full truncate">
-                          <ExternalLink className="w-2.5 h-2.5 shrink-0" />
-                          <span className="truncate">{slide.buttonText} → {slide.buttonUrl}</span>
-                        </span>
-                      )}
-
-                      <span className="inline-flex items-center gap-1 text-[11px] shrink-0">
-                        <Clock className="w-3 h-3" />
-                        <span>
-                          {slide.startDate || slide.endDate
-                            ? `${slide.startDate ? new Date(slide.startDate).toLocaleDateString('pt-BR') : 'Início imediato'} até ${slide.endDate ? new Date(slide.endDate).toLocaleDateString('pt-BR') : 'Indeterminado'}`
-                            : 'Sempre Ativo'}
-                        </span>
-                      </span>
-                    </div>
                   </div>
-                </div>
-
-                {/* Right: Status badge & Action buttons */}
-                <div className="flex items-center justify-between lg:justify-end gap-3 w-full lg:w-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-neutral-800">
-                  
-                  {/* Status toggle button */}
-                  <button
-                    onClick={() => handleToggleStatus(slide)}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold cursor-pointer border transition-colors flex items-center gap-1.5 ${
-                      slide.status === 'published'
-                        ? 'bg-emerald-950/70 border-emerald-700/60 text-emerald-300 hover:bg-emerald-900/60'
-                        : slide.status === 'draft'
-                        ? 'bg-amber-950/70 border-amber-700/60 text-amber-300 hover:bg-amber-900/60'
-                        : 'bg-neutral-900 border-neutral-700 text-neutral-400 hover:bg-neutral-800'
-                    }`}
-                    title="Clique para alternar o status do slide"
-                  >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        slide.status === 'published'
-                          ? 'bg-emerald-400'
-                          : slide.status === 'draft'
-                          ? 'bg-amber-400'
-                          : 'bg-neutral-500'
-                      }`}
-                    />
-                    <span>
-                      {slide.status === 'published'
-                        ? 'Publicado'
-                        : slide.status === 'draft'
-                        ? 'Rascunho'
-                        : 'Inativo'}
-                    </span>
-                  </button>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => setPreviewSlide(slide)}
-                      className="p-2 rounded-lg bg-[#141824] hover:bg-[#1d2334] text-neutral-300 hover:text-[#ffd978] transition-colors cursor-pointer"
-                      title="Visualizar banner"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      onClick={() => handleDuplicate(slide)}
-                      className="p-2 rounded-lg bg-[#141824] hover:bg-[#1d2334] text-neutral-300 hover:text-[#ffd978] transition-colors cursor-pointer"
-                      title="Duplicar slide como rascunho"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      onClick={() => handleEdit(slide)}
-                      className="p-2 rounded-lg bg-[#182030] hover:bg-[#202b42] text-[#93c5fd] hover:text-white transition-colors cursor-pointer border border-[#3b82f6]/30"
-                      title="Editar slide"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      onClick={() => setSlideToDelete(slide)}
-                      className="p-2 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-300 transition-colors cursor-pointer border border-red-800/40"
-                      title="Excluir slide"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* TAB 2: Contas & Usuários */}
+      {activeTab === 'users' && (
+        <UserManagementTab
+          accounts={accounts}
+          isLoading={isAccountsLoading}
+          onRefresh={loadAccounts}
+          onSaveAccount={handleSaveAccount}
+          onDeleteAccount={handleDeleteAccount}
+          onResetPassword={handleResetAccountPassword}
+        />
+      )}
+
+      {/* TAB 3: Acessos & Segurança */}
+      {activeTab === 'access' && (
+        <AccessManagementTab onNotify={handleNotify} />
+      )}
+
+      {/* TAB 4: Servidor & Sistema */}
+      {activeTab === 'server' && (
+        <ServerSettingsTab
+          onNotify={handleNotify}
+          onResetBanners={handleResetToOfficialPresets}
+        />
+      )}
+
+      {/* Slide Modals */}
       {slideToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-[#0e121a] border border-red-800/60 p-6 shadow-2xl">
@@ -697,11 +756,9 @@ export const AdminSlidesPage: React.FC = () => {
                 Confirmar Exclusão de Slide
               </h3>
             </div>
-
             <p className="text-xs text-[#c5bcab] mb-4 leading-relaxed">
               Você está prestes a excluir o slide <strong className="text-white font-semibold">"{slideToDelete.title}"</strong>. Esta ação removerá o banner do carrossel no site público.
             </p>
-
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-neutral-800">
               <button
                 onClick={() => setSlideToDelete(null)}
@@ -720,7 +777,6 @@ export const AdminSlidesPage: React.FC = () => {
         </div>
       )}
 
-      {/* Edit / Create Modal */}
       <SlideEditModal
         key={editingSlide?.id || (isEditModalOpen ? 'new' : 'closed')}
         isOpen={isEditModalOpen}
@@ -733,7 +789,6 @@ export const AdminSlidesPage: React.FC = () => {
         onSave={handleSaveSlide}
       />
 
-      {/* Preview Modal */}
       <SlidePreviewModal
         slide={previewSlide}
         onClose={() => setPreviewSlide(null)}

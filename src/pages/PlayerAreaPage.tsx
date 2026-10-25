@@ -364,17 +364,17 @@ export const PlayerAreaPage: React.FC = () => {
                     </span>
                   </div>
                   <p className="text-xs text-[#d6cebe] leading-relaxed">
-                    Conta <strong className="text-[#ffd978]">MALACA</strong> reconhecida com autoridade de <strong>Administrador do Servidor</strong> (<span className="text-[#ffd978]/90 font-mono">malaca7x@gmail.com</span>). Você possui controle total sobre carrossel de slides, moderação de publicações e exportação de backups.
+                    Conta <strong className="text-[#ffd978]">MALACA</strong> reconhecida com autoridade de <strong>Administrador Geral do Servidor</strong> (<span className="text-[#ffd978]/90 font-mono">malaca7x@gmail.com</span>). Você possui controle total sobre banners, gerenciamento de contas e usuários, chaves de acesso e status do reino.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2.5">
                   <Link
-                    to="/admin/slides"
+                    to="/admin"
                     className="btn-gold-primary px-4 py-2.5 rounded-xl text-xs font-serif font-bold flex items-center gap-2 shadow-lg cursor-pointer"
                   >
-                    <Layers className="w-4 h-4" />
-                    <span>Acessar Painel de Slides</span>
+                    <Shield className="w-4 h-4" />
+                    <span>Painel Administrativo Completo</span>
                   </Link>
                 </div>
               </div>
