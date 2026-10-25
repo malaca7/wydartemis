@@ -24,6 +24,13 @@
 @layer base {
   * {
     border-color: rgba(201, 151, 56, 0.15);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
@@ -31,6 +38,7 @@
     color: #ede3cc;
     font-family: var(--font-sans);
     overflow-x: hidden;
+    min-height: 100vh;
   }
 
   h1, h2, h3, h4, .font-cinzel {
@@ -41,6 +49,25 @@
   .font-display {
     font-family: var(--font-display);
   }
+
+  img, video {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* Custom scrollbar & mobile utilities */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.touch-scroll {
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Custom Medieval Utility Styles */

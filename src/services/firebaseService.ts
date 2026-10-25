@@ -34,6 +34,64 @@ import { mockCharacters, mockGuilds } from '../data/rankingData';
 import { initialServerStatus } from '../data/serverStatusData';
 
 // ---------------------------------------------------------------------------
+// Controle de Conectividade e Circuito Rápido (Circuit Breaker & Timeouts)
+// ---------------------------------------------------------------------------
+
+let isFirestoreAvailable = true;
+let isAuthAvailable = true;
+
+/**
+ * Executa uma Promise com limite de tempo rigoroso.
+ * Evita travamentos de interface quando APIs do Firebase estão offline,
+ * com permissões restritas ou retentando em loop infinito gRPC.
+ */
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs = 1500,
+  fallbackValue?: T
+): Promise<T> {
+  let timerId: ReturnType<typeof setTimeout> | undefined;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timerId = setTimeout(() => {
+      reject(new Error(`[Timeout ${timeoutMs}ms] Operação de banco cancelada preventivamente para manter alta fluidez.`));
+    }, timeoutMs);
+  });
+
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    if (timerId) clearTimeout(timerId);
+    return result;
+  } catch (err) {
+    if (timerId) clearTimeout(timerId);
+    if (fallbackValue !== undefined) {
+      return fallbackValue;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Inspeciona mensagens de erro do Firestore para desativar chamadas síncronas
+ * se a API Cloud Firestore estiver desativada ou com acesso negado no projeto.
+ */
+function recordFirestoreError(err: unknown): void {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (
+    msg.includes('PERMISSION_DENIED') ||
+    msg.includes('permission-denied') ||
+    msg.includes('Cloud Firestore API has not been used') ||
+    msg.includes('disabled') ||
+    msg.includes('Failed to get document because the client is offline')
+  ) {
+    if (isFirestoreAvailable) {
+      console.warn('[Firebase Firestore] API indisponível ou offline. Ativando modo local resiliente de alta velocidade.');
+      isFirestoreAvailable = false;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 1. Status do Servidor no Firestore
 // ---------------------------------------------------------------------------
 
@@ -41,19 +99,19 @@ const SERVER_STATUS_COLLECTION = 'server_status';
 const SERVER_STATUS_DOC_ID = 'current';
 
 export async function fetchServerStatus(): Promise<ServerStatusSnapshot> {
-  try {
-    const docRef = doc(db, SERVER_STATUS_COLLECTION, SERVER_STATUS_DOC_ID);
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
-      return snap.data() as ServerStatusSnapshot;
+  if (isFirestoreAvailable) {
+    try {
+      const docRef = doc(db, SERVER_STATUS_COLLECTION, SERVER_STATUS_DOC_ID);
+      const snap = await withTimeout(getDoc(docRef), 1200);
+      if (snap && snap.exists()) {
+        return snap.data() as ServerStatusSnapshot;
+      }
+    } catch (error) {
+      recordFirestoreError(error);
+      console.warn('[Firebase] Usando status local como fallback:', error);
     }
-    // If not seeded yet, seed initial
-    await setDoc(docRef, initialServerStatus);
-    return initialServerStatus;
-  } catch (error) {
-    console.warn('[Firebase] Usando status local como fallback:', error);
-    return initialServerStatus;
   }
+  return initialServerStatus;
 }
 
 export function subscribeServerStatus(
@@ -71,11 +129,13 @@ export function subscribeServerStatus(
         }
       },
       (error) => {
+        recordFirestoreError(error);
         console.warn('[Firebase] Erro no listener de status:', error);
         onUpdate(initialServerStatus);
       }
     );
   } catch (e) {
+    recordFirestoreError(e);
     console.warn('[Firebase] Não foi possível subscrever ao status:', e);
     return () => {};
   }
@@ -85,10 +145,18 @@ export async function updateServerStatusInFirestore(
   updated: Partial<ServerStatusSnapshot>
 ): Promise<void> {
   const docRef = doc(db, SERVER_STATUS_COLLECTION, SERVER_STATUS_DOC_ID);
-  await updateDoc(docRef, {
-    ...updated,
-    lastUpdated: new Date().toISOString(),
-  });
+  if (isFirestoreAvailable) {
+    withTimeout(
+      updateDoc(docRef, {
+        ...updated,
+        lastUpdated: new Date().toISOString(),
+      }),
+      1500
+    ).catch((err) => {
+      recordFirestoreError(err);
+      console.warn('[Firebase] Não foi possível atualizar status no Firestore:', err);
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -99,50 +167,53 @@ const CHARACTERS_COLLECTION = 'characters';
 const GUILDS_COLLECTION = 'guilds';
 
 export async function fetchCharactersFromFirestore(): Promise<CharacterRecord[]> {
-  try {
-    const colRef = collection(db, CHARACTERS_COLLECTION);
-    const q = query(colRef, orderBy('score', 'desc'));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<CharacterRecord, 'id'>) }));
+  if (isFirestoreAvailable) {
+    try {
+      const colRef = collection(db, CHARACTERS_COLLECTION);
+      const q = query(colRef, orderBy('score', 'desc'));
+      const snap = await withTimeout(getDocs(q), 1200);
+      if (snap && !snap.empty) {
+        return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<CharacterRecord, 'id'>) }));
+      }
+    } catch (error) {
+      recordFirestoreError(error);
+      console.warn('[Firebase] Usando ranking local de personagens como fallback:', error);
     }
-
-    // Auto-seed if collection is completely empty
-    seedInitialRanking().catch(() => {});
-    return mockCharacters;
-  } catch (error) {
-    console.warn('[Firebase] Usando ranking local de personagens como fallback:', error);
-    return mockCharacters;
   }
+  return mockCharacters;
 }
 
 export async function fetchGuildsFromFirestore(): Promise<GuildRecord[]> {
-  try {
-    const colRef = collection(db, GUILDS_COLLECTION);
-    const q = query(colRef, orderBy('score', 'desc'));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<GuildRecord, 'id'>) }));
+  if (isFirestoreAvailable) {
+    try {
+      const colRef = collection(db, GUILDS_COLLECTION);
+      const q = query(colRef, orderBy('score', 'desc'));
+      const snap = await withTimeout(getDocs(q), 1200);
+      if (snap && !snap.empty) {
+        return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<GuildRecord, 'id'>) }));
+      }
+    } catch (error) {
+      recordFirestoreError(error);
+      console.warn('[Firebase] Usando ranking local de guildas como fallback:', error);
     }
-
-    return mockGuilds;
-  } catch (error) {
-    console.warn('[Firebase] Usando ranking local de guildas como fallback:', error);
-    return mockGuilds;
   }
+  return mockGuilds;
 }
 
 export async function seedInitialRanking(): Promise<void> {
+  if (!isFirestoreAvailable) return;
   try {
-    for (const char of mockCharacters) {
-      const charRef = doc(db, CHARACTERS_COLLECTION, char.id);
-      await setDoc(charRef, char, { merge: true });
-    }
-    for (const guild of mockGuilds) {
-      const guildRef = doc(db, GUILDS_COLLECTION, guild.id);
-      await setDoc(guildRef, guild, { merge: true });
-    }
+    const promises = [
+      ...mockCharacters.map((char) =>
+        withTimeout(setDoc(doc(db, CHARACTERS_COLLECTION, char.id), char, { merge: true }), 1500)
+      ),
+      ...mockGuilds.map((guild) =>
+        withTimeout(setDoc(doc(db, GUILDS_COLLECTION, guild.id), guild, { merge: true }), 1500)
+      ),
+    ];
+    await Promise.allSettled(promises);
   } catch (err) {
+    recordFirestoreError(err);
     console.warn('[Firebase] Seed de ranking não concluído (permissões ou offline):', err);
   }
 }
@@ -191,15 +262,18 @@ export function saveAccountToLocalCache(profile: UserAccountDoc, pass?: string):
   }
 }
 
-export function getAccountFromLocalCache(query: string): UserAccountDoc | null {
+export function getAccountFromLocalCache(queryStr: string): StoredAccountDoc | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
     if (!raw) return null;
     const list: StoredAccountDoc[] = JSON.parse(raw);
-    const q = query.toLowerCase().trim();
+    const q = queryStr.toLowerCase().trim();
     const found = list.find(
-      (u) => u.email.toLowerCase() === q || u.displayName.toLowerCase() === q
+      (u) =>
+        u.email.toLowerCase() === q ||
+        u.displayName.toLowerCase() === q ||
+        u.uid.toLowerCase() === q
     );
     return found || null;
   } catch {
@@ -231,37 +305,9 @@ export async function registerWithFirebase(
   email: string,
   pass: string
 ): Promise<UserAccountDoc> {
-  let uid = `user_${username.toLowerCase().replace(/[^a-z0-9]/g, '')}_${Date.now()}`;
-
-  try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-    const user = userCredential.user;
-    uid = user.uid;
-    await updateProfile(user, { displayName: username }).catch(() => {});
-  } catch (authErr: unknown) {
-    const errMessage = authErr instanceof Error ? authErr.message : String(authErr);
-
-    // Se o provedor Email/Password não estiver ativado no console do Firebase,
-    // interceptamos e criamos a conta resiliente sem bloquear o jogador
-    if (
-      errMessage.includes('auth/configuration-not-found') ||
-      errMessage.includes('configuration-not-found') ||
-      errMessage.includes('auth/operation-not-allowed')
-    ) {
-      console.warn(
-        '[Firebase Auth] Provedor Email/Senha não habilitado no console (artemis-e4d33). Criando conta em modo resiliente:',
-        errMessage
-      );
-    } else if (errMessage.includes('auth/email-already-in-use')) {
-      throw new Error('Este e-mail já está em uso por outra conta no Firebase.');
-    } else if (errMessage.includes('auth/weak-password')) {
-      throw new Error('A senha deve ter no mínimo 6 caracteres.');
-    } else if (errMessage.includes('auth/invalid-email')) {
-      throw new Error('O formato do e-mail é inválido.');
-    } else {
-      console.warn('[Firebase Auth] Erro inesperado, procedendo com criação resiliente:', errMessage);
-    }
-  }
+  const cleanUsername = username.trim();
+  const cleanEmail = email.trim();
+  let uid = `user_${cleanUsername.toLowerCase().replace(/[^a-z0-9]/g, '')}_${Date.now()}`;
 
   const randomDigits = Math.floor(1000 + Math.random() * 9000);
   const accountCode = `ART-2026-${randomDigits}`;
@@ -269,14 +315,14 @@ export async function registerWithFirebase(
   const starterCharacters: DemoCharacter[] = [
     {
       id: `char-${uid}-1`,
-      name: `${username}_TK`,
+      name: `${cleanUsername}_TK`,
       characterClass: 'TransKnight',
       level: 1,
       stage: 'Mortal',
     },
     {
       id: `char-${uid}-2`,
-      name: `${username}_Foema`,
+      name: `${cleanUsername}_Foema`,
       characterClass: 'Foema',
       level: 1,
       stage: 'Mortal',
@@ -285,22 +331,62 @@ export async function registerWithFirebase(
 
   const profileData: UserAccountDoc = {
     uid,
-    email,
-    displayName: username,
+    email: cleanEmail,
+    displayName: cleanUsername,
     accountCode,
     characters: starterCharacters,
-    createdAt: '23 de Outubro de 2026',
+    createdAt: '25 de Outubro de 2026',
   };
 
-  // Salva no cache local de contas e sessão
+  // 1. Salva imediatamente no cache local para resposta ultra-rápida (UX instantânea)
   saveAccountToLocalCache(profileData, pass);
 
-  // Tenta persistir no Firestore
-  try {
-    const userDocRef = doc(db, USERS_COLLECTION, uid);
-    await setDoc(userDocRef, profileData);
-  } catch (err) {
-    console.warn('[Firebase] Não foi possível salvar perfil completo no Firestore:', err);
+  // 2. Se Auth estiver ativo, tenta registrar na nuvem com timeout rígido de 1.8s
+  if (isAuthAvailable) {
+    try {
+      const userCredential = await withTimeout(
+        createUserWithEmailAndPassword(auth, cleanEmail, pass),
+        1800
+      );
+      const user = userCredential.user;
+      profileData.uid = user.uid;
+      profileData.characters[0].id = `char-${user.uid}-1`;
+      profileData.characters[1].id = `char-${user.uid}-2`;
+      saveAccountToLocalCache(profileData, pass);
+      updateProfile(user, { displayName: cleanUsername }).catch(() => {});
+    } catch (authErr: unknown) {
+      const errMessage = authErr instanceof Error ? authErr.message : String(authErr);
+
+      if (
+        errMessage.includes('auth/configuration-not-found') ||
+        errMessage.includes('configuration-not-found') ||
+        errMessage.includes('auth/operation-not-allowed')
+      ) {
+        isAuthAvailable = false;
+        console.warn(
+          '[Firebase Auth] Provedor Email/Senha não habilitado no console (artemis-e4d33). Modo resiliente ativado com sucesso.'
+        );
+      } else if (errMessage.includes('auth/email-already-in-use')) {
+        throw new Error('Este e-mail já está em uso por outra conta no Artemis.');
+      } else if (errMessage.includes('auth/weak-password')) {
+        throw new Error('A senha deve ter no mínimo 6 caracteres.');
+      } else if (errMessage.includes('auth/invalid-email')) {
+        throw new Error('O formato do e-mail é inválido.');
+      } else {
+        console.warn('[Firebase Auth] Erro de rede ou timeout, prosseguindo com criação local:', errMessage);
+      }
+    }
+  }
+
+  // 3. Persiste no Firestore em segundo plano (SEM travar o usuário)
+  if (isFirestoreAvailable) {
+    withTimeout(
+      setDoc(doc(db, USERS_COLLECTION, profileData.uid), profileData),
+      1500
+    ).catch((err) => {
+      recordFirestoreError(err);
+      console.warn('[Firebase] Não foi possível persistir no Firestore em tempo hábil:', err);
+    });
   }
 
   return profileData;
@@ -310,83 +396,109 @@ export async function loginWithFirebase(
   emailOrUsername: string,
   pass: string
 ): Promise<UserAccountDoc | null> {
-  let email = emailOrUsername.trim();
+  const queryStr = emailOrUsername.trim();
+  let email = queryStr;
 
   if (!email.includes('@')) {
     email = `${email.toLowerCase().replace(/[^a-z0-9_]/g, '')}@artemis.realm`;
   }
 
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, pass);
-    const profile = await fetchUserProfile(userCredential.user.uid);
-    if (profile) {
-      saveAccountToLocalCache(profile, pass);
-    }
-    return profile;
-  } catch (err: unknown) {
-    const errMessage = err instanceof Error ? err.message : String(err);
-
-    // Se o provedor não estiver ativo no console (configuration-not-found)
-    // ou offline, autentica via base de contas registrada
-    if (
-      errMessage.includes('auth/configuration-not-found') ||
-      errMessage.includes('configuration-not-found') ||
-      errMessage.includes('auth/operation-not-allowed')
-    ) {
-      console.warn(
-        '[Firebase Auth] Provedor de Email/Senha não habilitado no console. Autenticando via base local/Firestore:',
-        errMessage
-      );
-
-      const cached = getAccountFromLocalCache(emailOrUsername);
-      if (cached) {
-        saveAccountToLocalCache(cached, pass);
-        return cached;
-      }
-
-      // Se é a primeira vez autenticando esse usuário, cria a conta resiliente
-      const newProfile: UserAccountDoc = {
-        uid: `user_${Date.now()}`,
-        email: email.includes('@') ? email : `${emailOrUsername}@artemis.realm`,
-        displayName: emailOrUsername.split('@')[0],
-        accountCode: `ART-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-        characters: [
-          {
-            id: `char-1`,
-            name: `${emailOrUsername.split('@')[0]}_TK`,
-            characterClass: 'TransKnight',
-            level: 1,
-            stage: 'Mortal',
-          },
-        ],
-        createdAt: '23 de Outubro de 2026',
-      };
-      saveAccountToLocalCache(newProfile, pass);
-      return newProfile;
-    }
-
-    if (
-      errMessage.includes('auth/user-not-found') ||
-      errMessage.includes('auth/wrong-password') ||
-      errMessage.includes('auth/invalid-credential')
-    ) {
-      throw new Error('Usuário ou senha incorretos.');
-    }
-
-    throw err;
+  // 1. Consulta o cache local
+  const cached = getAccountFromLocalCache(queryStr);
+  if (cached && cached.passwordHash && cached.passwordHash !== pass) {
+    throw new Error('Usuário ou senha incorretos.');
   }
+
+  // 2. Tenta autenticação na nuvem se disponível
+  if (isAuthAvailable) {
+    try {
+      const userCredential = await withTimeout(
+        signInWithEmailAndPassword(auth, email, pass),
+        1800
+      );
+      const profile = await withTimeout(
+        fetchUserProfile(userCredential.user.uid),
+        1200,
+        cached
+      );
+      if (profile) {
+        saveAccountToLocalCache(profile, pass);
+        return profile;
+      }
+    } catch (err: unknown) {
+      const errMessage = err instanceof Error ? err.message : String(err);
+
+      if (
+        errMessage.includes('auth/configuration-not-found') ||
+        errMessage.includes('configuration-not-found') ||
+        errMessage.includes('auth/operation-not-allowed')
+      ) {
+        isAuthAvailable = false;
+        console.warn(
+          '[Firebase Auth] Provedor Email/Senha não habilitado no console. Autenticando com base local instantânea.'
+        );
+      } else if (
+        errMessage.includes('auth/user-not-found') ||
+        errMessage.includes('auth/wrong-password') ||
+        errMessage.includes('auth/invalid-credential')
+      ) {
+        if (cached && (!cached.passwordHash || cached.passwordHash === pass)) {
+          saveAccountToLocalCache(cached, pass);
+          return cached;
+        }
+        throw new Error('Usuário ou senha incorretos.');
+      } else {
+        console.warn('[Firebase Auth] Prosseguindo com fallback de sessão rápida:', errMessage);
+      }
+    }
+  }
+
+  // 3. Fallback imediato se usuário já existe em cache
+  if (cached) {
+    saveAccountToLocalCache(cached, pass);
+    return cached;
+  }
+
+  // 4. Criação de sessão padrão caso seja o primeiro acesso local
+  const newProfile: UserAccountDoc = {
+    uid: `user_${Date.now()}`,
+    email: email.includes('@') ? email : `${emailOrUsername}@artemis.realm`,
+    displayName: emailOrUsername.split('@')[0],
+    accountCode: `ART-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+    characters: [
+      {
+        id: `char-1`,
+        name: `${emailOrUsername.split('@')[0]}_TK`,
+        characterClass: 'TransKnight',
+        level: 1,
+        stage: 'Mortal',
+      },
+    ],
+    createdAt: '25 de Outubro de 2026',
+  };
+  saveAccountToLocalCache(newProfile, pass);
+  return newProfile;
 }
 
 export async function fetchUserProfile(uid: string): Promise<UserAccountDoc | null> {
-  try {
-    const userDocRef = doc(db, USERS_COLLECTION, uid);
-    const snap = await getDoc(userDocRef);
-    if (snap.exists()) {
-      return snap.data() as UserAccountDoc;
+  const cached = getAccountFromLocalCache(uid) || getActiveLocalSession();
+
+  if (isFirestoreAvailable) {
+    try {
+      const userDocRef = doc(db, USERS_COLLECTION, uid);
+      const snap = await withTimeout(getDoc(userDocRef), 1200);
+      if (snap && snap.exists()) {
+        const data = snap.data() as UserAccountDoc;
+        saveAccountToLocalCache(data);
+        return data;
+      }
+    } catch (err) {
+      recordFirestoreError(err);
+      console.warn('[Firebase] Erro ao carregar perfil do Firestore:', err);
     }
-  } catch (err) {
-    console.warn('[Firebase] Erro ao carregar perfil do Firestore:', err);
   }
+
+  if (cached) return cached;
 
   const currentUser = auth.currentUser;
   if (!currentUser) return getActiveLocalSession();
@@ -405,41 +517,46 @@ export async function fetchUserProfile(uid: string): Promise<UserAccountDoc | nu
         stage: 'Mortal',
       },
     ],
-    createdAt: '23 de Outubro de 2026',
+    createdAt: '25 de Outubro de 2026',
   };
 }
 
 export async function sendPasswordReset(email: string): Promise<void> {
-  try {
-    await sendPasswordResetEmail(auth, email);
-  } catch (err: unknown) {
-    const errMessage = err instanceof Error ? err.message : String(err);
-    if (
-      errMessage.includes('auth/configuration-not-found') ||
-      errMessage.includes('configuration-not-found')
-    ) {
-      console.warn('[Firebase Auth] Recuperação simulada com sucesso:', email);
+  if (isAuthAvailable) {
+    try {
+      await withTimeout(sendPasswordResetEmail(auth, email), 1800);
       return;
+    } catch (err: unknown) {
+      const errMessage = err instanceof Error ? err.message : String(err);
+      if (
+        errMessage.includes('auth/configuration-not-found') ||
+        errMessage.includes('configuration-not-found')
+      ) {
+        isAuthAvailable = false;
+        console.warn('[Firebase Auth] Recuperação simulada com sucesso:', email);
+        return;
+      }
+      throw err;
     }
-    throw err;
   }
 }
 
 export async function updateAccountPassword(newPass: string): Promise<void> {
-  if (auth.currentUser) {
-    await updatePassword(auth.currentUser, newPass);
-  } else {
-    const session = getActiveLocalSession();
-    if (session) {
-      saveAccountToLocalCache(session, newPass);
-    }
+  const session = getActiveLocalSession();
+  if (session) {
+    saveAccountToLocalCache(session, newPass);
+  }
+  if (auth.currentUser && isAuthAvailable) {
+    withTimeout(updatePassword(auth.currentUser, newPass), 1500).catch((err) => {
+      console.warn('[Firebase Auth] Erro ao atualizar senha no servidor:', err);
+    });
   }
 }
 
 export async function logoutFirebase(): Promise<void> {
   clearActiveLocalSession();
   try {
-    await signOut(auth);
+    await withTimeout(signOut(auth), 1000);
   } catch {
     // Ignore error
   }
@@ -458,6 +575,7 @@ export function subscribeAuthState(
 const ORDERS_COLLECTION = 'shop_orders';
 
 export interface ShopOrderRecord {
+  orderId: string;
   userId: string | null;
   userEmail: string | null;
   items: CartLine[];
@@ -469,21 +587,51 @@ export interface ShopOrderRecord {
 export async function recordShopOrder(
   cart: CartLine[],
   totalCredits: number,
-  user?: FirebaseUser | null
-): Promise<string | null> {
-  try {
-    const colRef = collection(db, ORDERS_COLLECTION);
-    const docRef = await addDoc(colRef, {
-      userId: user?.uid || 'guest_demo',
-      userEmail: user?.email || 'guest@artemis.demo',
-      items: cart,
-      totalCredits,
-      status: 'simulated_completed',
-      createdAt: serverTimestamp(),
-    });
-    return docRef.id;
-  } catch (err) {
-    console.warn('[Firebase] Pedido simulado gravado localmente (Firestore offline ou restrito):', err);
-    return null;
+  user?: FirebaseUser | null,
+  profile?: UserAccountDoc | null
+): Promise<string> {
+  const orderId = `ART-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const userId = user?.uid || profile?.uid || 'guest_demo';
+  const userEmail = user?.email || profile?.email || 'guest@artemis.demo';
+
+  // Salva no histórico de pedidos do localStorage imediatamente (resposta imediata)
+  if (typeof window !== 'undefined') {
+    try {
+      const existing = localStorage.getItem('wyd_artemis_shop_orders');
+      const orders = existing ? JSON.parse(existing) : [];
+      orders.unshift({
+        orderId,
+        userId,
+        userEmail,
+        items: cart,
+        totalCredits,
+        status: 'simulated_completed',
+        createdAt: new Date().toISOString(),
+      });
+      localStorage.setItem('wyd_artemis_shop_orders', JSON.stringify(orders.slice(0, 50)));
+    } catch {
+      // Ignora erro de storage local
+    }
   }
+
+  // Tenta persistir no Firestore em segundo plano com timeout
+  if (isFirestoreAvailable) {
+    withTimeout(
+      addDoc(collection(db, ORDERS_COLLECTION), {
+        orderId,
+        userId: user?.uid || 'guest_demo',
+        userEmail: user?.email || 'guest@artemis.demo',
+        items: cart,
+        totalCredits,
+        status: 'simulated_completed',
+        createdAt: serverTimestamp(),
+      }),
+      1500
+    ).catch((err) => {
+      recordFirestoreError(err);
+      console.warn('[Firebase] Pedido gravado localmente (Firestore offline ou restrito):', err);
+    });
+  }
+
+  return orderId;
 }

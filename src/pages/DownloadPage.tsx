@@ -95,73 +95,73 @@ export const DownloadPage: React.FC = () => {
 
       {/* System Requirements Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-        <div className="medieval-panel rounded-xl p-6 border border-neutral-800">
+        <div className="medieval-panel rounded-xl p-5 sm:p-6 border border-neutral-800">
           <h3 className="font-serif font-bold text-lg text-[#ffd978] mb-4 flex items-center gap-2">
             <Cpu className="w-5 h-5 text-[#c99738]" />
             <span>Requisitos Mínimos</span>
           </h3>
-          <ul className="space-y-3 text-xs text-[#c5bcab]">
-            <li className="flex justify-between py-1.5 border-b border-neutral-800">
+          <ul className="space-y-2.5 text-xs text-[#c5bcab]">
+            <li className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-1.5 border-b border-neutral-800 gap-0.5">
               <span className="text-neutral-400">Sistema Operacional:</span>
-              <span>Windows 10 / 11 (64-bit)</span>
+              <span className="font-medium text-[#ede3cc]">Windows 10 / 11 (64-bit)</span>
             </li>
-            <li className="flex justify-between py-1.5 border-b border-neutral-800">
+            <li className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-1.5 border-b border-neutral-800 gap-0.5">
               <span className="text-neutral-400">Processador (CPU):</span>
-              <span>Intel Core i3 ou AMD equivalente</span>
+              <span className="font-medium text-[#ede3cc]">Intel Core i3 ou AMD equivalente</span>
             </li>
-            <li className="flex justify-between py-1.5 border-b border-neutral-800">
+            <li className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-1.5 border-b border-neutral-800 gap-0.5">
               <span className="text-neutral-400">Memória RAM:</span>
-              <span>4 GB RAM</span>
+              <span className="font-medium text-[#ede3cc]">4 GB RAM</span>
             </li>
-            <li className="flex justify-between py-1.5 border-b border-neutral-800">
+            <li className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-1.5 border-b border-neutral-800 gap-0.5">
               <span className="text-neutral-400">Placa de Vídeo:</span>
-              <span>DirectX 9.0c compatível</span>
+              <span className="font-medium text-[#ede3cc]">DirectX 9.0c compatível</span>
             </li>
-            <li className="flex justify-between py-1.5">
+            <li className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-1.5 gap-0.5">
               <span className="text-neutral-400">Armazenamento:</span>
-              <span>5 GB de espaço livre</span>
+              <span className="font-medium text-[#ede3cc]">5 GB de espaço livre</span>
             </li>
           </ul>
         </div>
 
-        <div className="medieval-panel rounded-xl p-6 border border-[#c99738]/30">
+        <div className="medieval-panel rounded-xl p-5 sm:p-6 border border-[#c99738]/30">
           <h3 className="font-serif font-bold text-lg text-[#ffd978] mb-4 flex items-center gap-2">
             <Monitor className="w-5 h-5 text-[#ffd978]" />
             <span>Requisitos Recomendados</span>
           </h3>
-          <ul className="space-y-3 text-xs text-[#c5bcab]">
-            <li className="flex justify-between py-1.5 border-b border-neutral-800">
+          <ul className="space-y-2.5 text-xs text-[#c5bcab]">
+            <li className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-1.5 border-b border-neutral-800 gap-0.5">
               <span className="text-neutral-400">Sistema Operacional:</span>
-              <span>Windows 11 (64-bit)</span>
+              <span className="font-medium text-[#ede3cc]">Windows 11 (64-bit)</span>
             </li>
-            <li className="flex justify-between py-1.5 border-b border-neutral-800">
+            <li className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-1.5 border-b border-neutral-800 gap-0.5">
               <span className="text-neutral-400">Processador (CPU):</span>
-              <span>Intel Core i5 / AMD Ryzen 5 ou superior</span>
+              <span className="font-medium text-[#ede3cc]">Intel Core i5 / AMD Ryzen 5 ou superior</span>
             </li>
-            <li className="flex justify-between py-1.5 border-b border-neutral-800">
+            <li className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-1.5 border-b border-neutral-800 gap-0.5">
               <span className="text-neutral-400">Memória RAM:</span>
-              <span>8 GB RAM</span>
+              <span className="font-medium text-[#ede3cc]">8 GB RAM</span>
             </li>
-            <li className="flex justify-between py-1.5 border-b border-neutral-800">
+            <li className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-1.5 border-b border-neutral-800 gap-0.5">
               <span className="text-neutral-400">Placa de Vídeo:</span>
-              <span>NVIDIA GTX 1050 / AMD RX 560 ou superior</span>
+              <span className="font-medium text-[#ede3cc]">NVIDIA GTX 1050 / AMD RX 560 ou superior</span>
             </li>
-            <li className="flex justify-between py-1.5">
+            <li className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-1.5 gap-0.5">
               <span className="text-neutral-400">Armazenamento:</span>
-              <span>SSD com 10 GB de espaço livre</span>
+              <span className="font-medium text-[#ede3cc]">SSD com 10 GB de espaço livre</span>
             </li>
           </ul>
         </div>
       </div>
 
       {/* Step-by-Step Installation Cards */}
-      <div className="medieval-panel rounded-2xl p-6 sm:p-8 border border-[#c99738]/40 mb-10 shadow-xl">
+      <div className="medieval-panel rounded-2xl p-5 sm:p-8 border border-[#c99738]/40 mb-10 shadow-xl">
         <h3 className="font-serif font-bold text-xl text-[#f5efe2] mb-6 flex items-center gap-2">
           <ShieldCheck className="w-5 h-5 text-[#ffd978]" />
           <span>Guia Passo a Passo de Instalação</span>
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-4 rounded-xl bg-[#0f131c] border border-neutral-800 space-y-2">
             <span className="w-7 h-7 rounded-lg bg-[#c99738]/20 text-[#ffd978] border border-[#c99738]/50 inline-flex items-center justify-center text-xs font-serif font-bold">
               1

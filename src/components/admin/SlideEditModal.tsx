@@ -6,6 +6,7 @@ import {
   CheckCircle,
   Eye,
   Layers,
+  Loader2,
 } from 'lucide-react';
 import type { BannerSlide, SlideAlignment, SlideStatus, SlideValidationErrors } from '../../types';
 import { presetBannerImages, validateSlide } from '../../data/slidesData';
@@ -533,16 +534,16 @@ export const SlideEditModal: React.FC<SlideEditModalProps> = ({
           </div>
 
           {/* Form Actions */}
-          <div className="pt-4 border-t border-[#c99738]/30 flex items-center justify-between">
+          <div className="pt-4 border-t border-[#c99738]/30 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <span className="text-xs text-[#8c8577]">
               * Os slides publicados e ativos são exibidos automaticamente na página inicial.
             </span>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={handleCloseAttempt}
-                className="px-4 py-2.5 rounded-xl border border-neutral-700 hover:bg-neutral-800 text-xs text-[#c5bcab] font-medium transition-colors cursor-pointer"
+                className="flex-1 sm:flex-initial text-center px-4 py-2.5 rounded-xl border border-neutral-700 hover:bg-neutral-800 text-xs text-[#c5bcab] font-medium transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
@@ -550,10 +551,13 @@ export const SlideEditModal: React.FC<SlideEditModalProps> = ({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="btn-gold-primary px-6 py-2.5 rounded-xl text-xs font-serif font-bold flex items-center gap-2 shadow-[0_4px_15px_rgba(201,151,56,0.3)] cursor-pointer disabled:opacity-50"
+                className="flex-1 sm:flex-initial text-center justify-center btn-gold-primary px-6 py-2.5 rounded-xl text-xs font-serif font-bold flex items-center gap-2 shadow-[0_4px_15px_rgba(201,151,56,0.3)] cursor-pointer disabled:opacity-50"
               >
                 {isSubmitting ? (
-                  <span>Salvando no Firestore...</span>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-[#140e07]" />
+                    <span>Salvando Slide...</span>
+                  </>
                 ) : (
                   <>
                     <CheckCircle className="w-4 h-4" />

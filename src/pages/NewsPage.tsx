@@ -111,15 +111,15 @@ export const NewsPage: React.FC = () => {
       </div>
 
       {/* News Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 mb-12">
         {filteredNews.map((news) => (
           <article
             key={news.id}
-            className="medieval-panel-interactive rounded-xl p-6 flex flex-col justify-between group cursor-pointer"
+            className="medieval-panel-interactive rounded-xl p-5 sm:p-6 flex flex-col justify-between group cursor-pointer"
             onClick={() => handleReadNews(news)}
           >
             <div>
-              <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <span className="text-[11px] font-semibold text-[#ffd978] bg-[#1d2332] border border-[#c99738]/30 px-2.5 py-0.5 rounded">
                   {news.category}
                 </span>
@@ -142,7 +142,7 @@ export const NewsPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t border-neutral-800/80">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-4 border-t border-neutral-800/80">
               <span className="text-xs font-serif font-bold text-[#ffd978] group-hover:text-[#fff0ba] flex items-center gap-1.5">
                 <span>Ler comunicado</span>
                 <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />

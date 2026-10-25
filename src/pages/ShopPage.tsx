@@ -27,7 +27,7 @@ import { useAuth } from '../hooks/useAuth';
 import type { ShopProduct, CartLine, ShopArtKey } from '../types';
 
 export const ShopPage: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -90,7 +90,7 @@ export const ShopPage: React.FC = () => {
     setCheckoutSimulated(true);
     let orderId: string | null = null;
     try {
-      orderId = await recordShopOrder(cart, cartTotal, currentUser);
+      orderId = await recordShopOrder(cart, cartTotal, currentUser, userProfile);
     } catch (e) {
       console.warn('Erro ao registrar pedido no Firebase:', e);
     }
@@ -193,12 +193,12 @@ export const ShopPage: React.FC = () => {
 
       {/* Search and Category Filters */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8">
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full md:w-auto pb-1 sm:pb-0">
           {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-2 rounded-lg text-xs font-serif font-bold tracking-wider uppercase transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-lg text-xs font-serif font-bold tracking-wider uppercase transition-all cursor-pointer shrink-0 ${
                 selectedCategory === cat
                   ? 'bg-[#c99738] text-black shadow-md'
                   : 'bg-[#121620] text-[#a8a090] border border-neutral-800 hover:border-[#c99738]/50 hover:text-[#ffd978]'
@@ -279,7 +279,7 @@ export const ShopPage: React.FC = () => {
           onClick={() => setActiveProductModal(null)}
         >
           <div
-            className="medieval-panel max-w-lg w-full rounded-2xl p-6 sm:p-8 border border-[#c99738]/50 shadow-2xl relative"
+            className="medieval-panel max-w-lg w-full rounded-2xl p-6 sm:p-8 border border-[#c99738]/50 shadow-2xl relative max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <button

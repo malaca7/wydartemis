@@ -90,10 +90,10 @@ export const CharacterDetailModal: React.FC<CharacterDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md">
-      <div className="relative w-full max-w-2xl rounded-2xl bg-[#0c0f16] border border-[#c99738]/50 shadow-[0_20px_60px_rgba(0,0,0,0.95)] overflow-hidden">
+      <div className="relative w-full max-w-2xl rounded-2xl bg-[#0c0f16] border border-[#c99738]/50 shadow-[0_20px_60px_rgba(0,0,0,0.95)] overflow-hidden max-h-[92vh] flex flex-col">
         
         {/* Top Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-[#121622] border-b border-[#c99738]/30">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 bg-[#121622] border-b border-[#c99738]/30 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#1a2232] border border-[#c99738]/40 flex items-center justify-center text-[#ffd978]">
               <Swords className="w-5 h-5" />
@@ -123,7 +123,7 @@ export const CharacterDetailModal: React.FC<CharacterDetailModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 overflow-y-auto flex-1">
           
           {/* Health & Mana Gauges */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -248,15 +248,15 @@ export const CharacterDetailModal: React.FC<CharacterDetailModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-[#0a0d14] border-t border-neutral-800 flex items-center justify-between text-xs text-[#8c8475]">
-          <span className="flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-[#ffd978]" />
-            <span>Sincronizado com o Firestore do Artemis</span>
+        <div className="px-4 sm:px-6 py-3.5 bg-[#0a0d14] border-t border-neutral-800 flex items-center justify-between text-xs text-[#8c8475] shrink-0">
+          <span className="flex items-center gap-1.5 truncate mr-2">
+            <Sparkles className="w-3.5 h-3.5 text-[#ffd978] shrink-0" />
+            <span className="truncate">Sincronizado com o Firestore</span>
           </span>
 
           <button
             onClick={onClose}
-            className="btn-gold-primary px-4 py-1.5 rounded-lg text-xs font-serif font-bold cursor-pointer"
+            className="btn-gold-primary px-4 py-1.5 rounded-lg text-xs font-serif font-bold cursor-pointer shrink-0"
           >
             Fechar
           </button>

@@ -134,16 +134,18 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onExploreClick }) => {
         }}
       >
         {/* Server Status Pill (Demonstrative) with Arcane Sapphire Beacon */}
-        <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-[#0e131d]/95 border border-[#3b82f6]/40 shadow-[0_4px_20px_rgba(0,0,0,0.8),0_0_15px_rgba(59,130,246,0.25)] backdrop-blur-md mb-6 hover:border-[#60a5fa] transition-colors">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500 shadow-[0_0_8px_#60a5fa]"></span>
-          </span>
-          <span className="text-xs uppercase tracking-wider text-[#93c5fd] font-semibold">
-            Servidor em Pré-Lançamento
-          </span>
-          <span className="text-neutral-500">•</span>
-          <span className="text-[11px] text-[#ffd978] font-medium font-mono">
+        <div className="inline-flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-1.5 rounded-full bg-[#0e131d]/95 border border-[#3b82f6]/40 shadow-[0_4px_20px_rgba(0,0,0,0.8),0_0_15px_rgba(59,130,246,0.25)] backdrop-blur-md mb-6 hover:border-[#60a5fa] transition-colors max-w-full">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500 shadow-[0_0_8px_#60a5fa]"></span>
+            </span>
+            <span className="text-[11px] sm:text-xs uppercase tracking-wider text-[#93c5fd] font-semibold">
+              Servidor em Pré-Lançamento
+            </span>
+          </div>
+          <span className="text-neutral-500 hidden sm:inline">•</span>
+          <span className="text-[10px] sm:text-[11px] text-[#ffd978] font-medium font-mono">
             Protótipo Demonstrativo
           </span>
         </div>
@@ -164,7 +166,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onExploreClick }) => {
           <div className="absolute inset-0 rounded-full bg-radial from-[#3b82f6]/35 via-[#c99738]/20 to-transparent blur-3xl scale-125 pointer-events-none animate-pulse-glow" />
 
           {/* Logo container with multi-layered drop shadow */}
-          <div className="relative w-72 sm:w-92 md:w-[460px] max-w-[92vw] transition-all duration-500 group-hover:scale-[1.03] filter drop-shadow-[0_20px_45px_rgba(0,0,0,0.95)] drop-shadow-[0_0_35px_rgba(59,130,246,0.45)] drop-shadow-[0_0_60px_rgba(201,151,56,0.3)]">
+          <div className="relative w-64 sm:w-92 md:w-[460px] max-w-[92vw] transition-all duration-500 group-hover:scale-[1.03] filter drop-shadow-[0_20px_45px_rgba(0,0,0,0.95)] drop-shadow-[0_0_35px_rgba(59,130,246,0.45)] drop-shadow-[0_0_60px_rgba(201,151,56,0.3)]">
             <img
               src={`${import.meta.env.BASE_URL}assets/artemis-logo.jpg`}
               alt="WYD Artemis Logo Oficial"
@@ -177,19 +179,19 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onExploreClick }) => {
         <h1 className="sr-only">WYD Artemis — Servidor Medieval de MMORPG</h1>
 
         {/* Positioning Subtitle with Gilded Ambient Highlight */}
-        <p className="font-serif text-lg sm:text-xl md:text-2xl font-semibold text-[#f5ebd6] tracking-wide max-w-3xl drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)] mb-3">
+        <p className="font-serif text-base sm:text-xl md:text-2xl font-semibold text-[#f5ebd6] tracking-wide max-w-3xl drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)] mb-3 px-2">
           O Renascimento das Batalhas Épicas e da Glória Medieval
         </p>
 
-        <p className="text-sm sm:text-base text-[#b8b09f] max-w-2xl leading-relaxed mb-9 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
+        <p className="text-xs sm:text-sm md:text-base text-[#b8b09f] max-w-2xl leading-relaxed mb-8 sm:mb-9 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)] px-2">
           Entre no universo sagrado de Artemis. Forje armas lendárias com gemas arcanas, domine magias ancestrais e lute ao lado de sua guilda pela supremacia e honra em Noatun.
         </p>
 
         {/* Main CTA Buttons with Interactive Flare Sweeps */}
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto mb-12">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 sm:gap-4 w-full sm:w-auto mb-10 sm:mb-12 px-4 sm:px-0">
           <button
             onClick={handleDownloadClick}
-            className="w-full sm:w-auto btn-gold-primary px-8 py-4 rounded-xl text-sm sm:text-base flex items-center justify-center gap-3 cursor-pointer group shadow-[0_10px_35px_rgba(201,151,56,0.4)]"
+            className="w-full sm:w-auto btn-gold-primary px-8 py-3.5 sm:py-4 rounded-xl text-sm sm:text-base flex items-center justify-center gap-3 cursor-pointer group shadow-[0_10px_35px_rgba(201,151,56,0.4)]"
           >
             <Download className="w-5 h-5 transition-transform duration-300 group-hover:-translate-y-0.5" />
             <span>Baixar o Jogo</span>
@@ -200,7 +202,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onExploreClick }) => {
 
           <button
             onClick={scrollToExplore}
-            className="w-full sm:w-auto btn-medieval-secondary px-8 py-4 rounded-xl text-sm sm:text-base flex items-center justify-center gap-3 cursor-pointer group border-[#3b82f6]/40 hover:border-[#60a5fa]"
+            className="w-full sm:w-auto btn-medieval-secondary px-8 py-3.5 sm:py-4 rounded-xl text-sm sm:text-base flex items-center justify-center gap-3 cursor-pointer group border-[#3b82f6]/40 hover:border-[#60a5fa]"
           >
             <Compass className="w-5 h-5 text-[#93c5fd] transition-transform duration-300 group-hover:rotate-45" />
             <span>Explorar o Mundo</span>
@@ -208,34 +210,34 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onExploreClick }) => {
         </div>
 
         {/* Server Highlights Pill Grid (Demonstrative) with Hover Glows */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 w-full max-w-4xl text-left">
-          <div className="medieval-panel p-4 rounded-xl border border-[#c99738]/25 hover:border-[#ffd978]/60 transition-all duration-300 hover:-translate-y-1 group">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5 w-full max-w-4xl text-left">
+          <div className="medieval-panel p-3.5 sm:p-4 rounded-xl border border-[#c99738]/25 hover:border-[#ffd978]/60 transition-all duration-300 hover:-translate-y-1 group">
             <div className="flex items-center gap-2 text-xs font-semibold text-[#ffd978] mb-1.5">
-              <Swords className="w-4 h-4 text-[#ffd978] group-hover:rotate-12 transition-transform" />
+              <Swords className="w-4 h-4 text-[#ffd978] group-hover:rotate-12 transition-transform shrink-0" />
               <span>PvP & Honra</span>
             </div>
             <p className="text-xs text-[#a9a190] leading-snug">Guerra de Torre e Cidades com pontuação equilibrada</p>
           </div>
 
-          <div className="medieval-panel p-4 rounded-xl border border-[#3b82f6]/25 hover:border-[#60a5fa]/70 transition-all duration-300 hover:-translate-y-1 group">
+          <div className="medieval-panel p-3.5 sm:p-4 rounded-xl border border-[#3b82f6]/25 hover:border-[#60a5fa]/70 transition-all duration-300 hover:-translate-y-1 group">
             <div className="flex items-center gap-2 text-xs font-semibold text-[#93c5fd] mb-1.5">
-              <Sparkles className="w-4 h-4 text-[#60a5fa] group-hover:scale-110 transition-transform" />
+              <Sparkles className="w-4 h-4 text-[#60a5fa] group-hover:scale-110 transition-transform shrink-0" />
               <span>4 Classes</span>
             </div>
             <p className="text-xs text-[#a9a190] leading-snug">TransKnight, Foema, BeastMaster e Huntress balanceados</p>
           </div>
 
-          <div className="medieval-panel p-4 rounded-xl border border-[#c99738]/25 hover:border-[#ffd978]/60 transition-all duration-300 hover:-translate-y-1 group">
+          <div className="medieval-panel p-3.5 sm:p-4 rounded-xl border border-[#c99738]/25 hover:border-[#ffd978]/60 transition-all duration-300 hover:-translate-y-1 group">
             <div className="flex items-center gap-2 text-xs font-semibold text-[#ffd978] mb-1.5">
-              <Shield className="w-4 h-4 text-[#ffd978] group-hover:scale-110 transition-transform" />
+              <Shield className="w-4 h-4 text-[#ffd978] group-hover:scale-110 transition-transform shrink-0" />
               <span>Forja & Refino</span>
             </div>
             <p className="text-xs text-[#a9a190] leading-snug">Composição clássica de itens até +15 sem perdas injustas</p>
           </div>
 
-          <div className="medieval-panel p-4 rounded-xl border border-emerald-500/25 hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-1 group">
+          <div className="medieval-panel p-3.5 sm:p-4 rounded-xl border border-emerald-500/25 hover:border-emerald-400/60 transition-all duration-300 hover:-translate-y-1 group">
             <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400 mb-1.5">
-              <Server className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+              <Server className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
               <span>Estabilidade</span>
             </div>
             <p className="text-xs text-[#a9a190] leading-snug">Anti-cheat moderno e infraestrutura de baixa latência</p>

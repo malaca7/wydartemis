@@ -18,6 +18,7 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { updateAccountPassword } from '../services/firebaseService';
@@ -30,6 +31,7 @@ export const PlayerAreaPage: React.FC = () => {
   const {
     currentUser,
     userProfile,
+    isAuthenticated,
     login,
     register,
     logout,
@@ -54,12 +56,12 @@ export const PlayerAreaPage: React.FC = () => {
   const { openPendingModal } = useModal();
   const passwordStrength = useMemo(() => evaluatePasswordStrength(password), [password]);
 
-  const isUserAuthenticated = Boolean(currentUser || demoSession);
+  const isUserAuthenticated = Boolean(isAuthenticated || demoSession);
 
   const activeDisplayName =
     userProfile?.displayName || currentUser?.displayName || demoSession?.displayName || 'Guerreiro_Artemis';
   const activeAccountCode =
-    userProfile?.accountCode || demoSession?.accountCode || `ART-${currentUser?.uid.slice(0, 6).toUpperCase() || '2026'}`;
+    userProfile?.accountCode || demoSession?.accountCode || `ART-${(userProfile?.uid || currentUser?.uid || '2026').slice(0, 6).toUpperCase()}`;
   const activeCharacters =
     userProfile?.characters || demoSession?.characters || initialDemoProfile.characters;
 
@@ -214,8 +216,8 @@ export const PlayerAreaPage: React.FC = () => {
         </h1>
         <p className="text-[#b5ac9c] text-sm md:text-base leading-relaxed">
           {isUserAuthenticated
-            ? 'Gerencie sua conta conectada ao Firebase, visualize seus personagens associados no Firestore e consulte o histórico.'
-            : 'Acesse sua conta ou cadastre-se com autenticação do Firebase.'}
+            ? 'Gerencie sua conta conectada, visualize seus personagens associados no Artemis e consulte seu histórico de jornada.'
+            : 'Acesse sua conta ou cadastre-se para iniciar sua jornada com segurança no Artemis Realm.'}
         </p>
         <MedievalDivider variant="gold" className="my-6" />
       </div>
@@ -231,7 +233,7 @@ export const PlayerAreaPage: React.FC = () => {
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-[11px] font-mono text-emerald-300">
-            {currentUser ? `Firebase: ${currentUser.email || currentUser.displayName}` : 'Firebase Auth Conectado'}
+            {currentUser?.email || userProfile?.email ? `Conectado: ${currentUser?.email || userProfile?.email}` : 'Firebase Auth Conectado'}
           </span>
           {!isUserAuthenticated && (
             <button
@@ -264,7 +266,7 @@ export const PlayerAreaPage: React.FC = () => {
                       {activeDisplayName}
                     </h2>
                     <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
-                      {currentUser ? 'Conta Firebase Ativa' : 'Sessão Demonstrativa'}
+                      {currentUser || userProfile ? 'Conta Artemis Ativa' : 'Sessão Demonstrativa'}
                     </span>
                   </div>
                   <p className="text-xs text-[#9c9484] font-mono mt-0.5">
@@ -273,10 +275,10 @@ export const PlayerAreaPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full md:w-auto">
                 <Link
                   to="/admin/slides"
-                  className="btn-gold-primary px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-md"
+                  className="flex-1 sm:flex-initial justify-center btn-gold-primary px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-md"
                   title="Acessar painel de gerenciamento de slides e banners"
                 >
                   <Layers className="w-3.5 h-3.5" />
@@ -285,7 +287,7 @@ export const PlayerAreaPage: React.FC = () => {
 
                 <button
                   onClick={() => setIsChangePasswordModalOpen(true)}
-                  className="btn-medieval-secondary px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
+                  className="flex-1 sm:flex-initial justify-center btn-medieval-secondary px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <KeyRound className="w-3.5 h-3.5 text-[#ffd978]" />
                   <span>Alterar Senha</span>
@@ -293,11 +295,11 @@ export const PlayerAreaPage: React.FC = () => {
 
                 <button
                   onClick={handleLogout}
-                  className="p-2 rounded-lg bg-red-950/30 hover:bg-red-900/40 text-red-300 border border-red-800/40 text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
-                  title="Encerrar sessão demonstrativa"
+                  className="p-2 rounded-lg bg-red-950/30 hover:bg-red-900/40 text-red-300 border border-red-800/40 text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  title="Encerrar sessão"
                 >
                   <LogOut className="w-4 h-4" />
-                  <span>Sair</span>
+                  <span className="inline sm:hidden md:inline">Sair</span>
                 </button>
               </div>
             </div>
@@ -340,7 +342,7 @@ export const PlayerAreaPage: React.FC = () => {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {activeCharacters.map((char) => (
                 <div
                   key={char.id}
@@ -621,15 +623,20 @@ export const PlayerAreaPage: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full btn-gold-primary py-3 rounded-lg text-xs font-serif font-bold tracking-wider mt-2 cursor-pointer shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full btn-gold-primary py-3 rounded-lg text-xs font-serif font-bold tracking-wider mt-2 cursor-pointer shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {isSubmitting
-                ? 'Processando no Firebase...'
-                : activeTab === 'login'
-                ? 'Acessar com Firebase Auth'
-                : activeTab === 'register'
-                ? 'Criar Conta no Firebase'
-                : 'Enviar Redefinição por E-mail'}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-[#140e07]" />
+                  <span>Processando com Segurança...</span>
+                </>
+              ) : activeTab === 'login' ? (
+                'Acessar Conta de Jogador'
+              ) : activeTab === 'register' ? (
+                'Criar Conta no Artemis Realm'
+              ) : (
+                'Enviar Redefinição por E-mail'
+              )}
             </button>
           </form>
         </div>
@@ -642,7 +649,7 @@ export const PlayerAreaPage: React.FC = () => {
           onClick={() => setIsChangePasswordModalOpen(false)}
         >
           <div
-            className="medieval-panel max-w-sm w-full rounded-2xl p-6 border border-[#c99738]/50 shadow-2xl relative"
+            className="medieval-panel max-w-sm w-full rounded-2xl p-6 border border-[#c99738]/50 shadow-2xl relative max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-4">

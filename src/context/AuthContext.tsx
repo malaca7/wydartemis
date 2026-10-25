@@ -62,9 +62,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await sendPasswordReset(email);
   };
 
+  const isAuthenticated = Boolean(currentUser || userProfile);
+
   const refreshProfile = async (): Promise<void> => {
-    if (currentUser) {
-      const profile = await fetchUserProfile(currentUser.uid);
+    const activeUid = currentUser?.uid || userProfile?.uid;
+    if (activeUid) {
+      const profile = await fetchUserProfile(activeUid);
       setUserProfile(profile);
     }
   };
@@ -74,6 +77,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       value={{
         currentUser,
         userProfile,
+        isAuthenticated,
         isLoading,
         login,
         register,

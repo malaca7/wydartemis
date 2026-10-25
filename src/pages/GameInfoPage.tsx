@@ -66,30 +66,30 @@ export const GameInfoPage: React.FC = () => {
       </div>
 
       {/* Class Selector Tabs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mb-8">
         {classesData.map((cls) => {
           const isActive = selectedClass.id === cls.id;
           return (
             <button
               key={cls.id}
               onClick={() => setSelectedClass(cls)}
-              className={`p-4 rounded-xl border text-center transition-all cursor-pointer ${
+              className={`p-3 sm:p-4 rounded-xl border text-center transition-all cursor-pointer ${
                 isActive
                   ? 'bg-[#1b2230] border-[#ffd978] shadow-[0_0_15px_rgba(201,151,56,0.25)]'
                   : 'bg-[#0f1218] border-neutral-800 hover:border-[#c99738]/40 text-[#c5bcab]'
               }`}
             >
-              <h3 className={`font-serif font-bold text-base ${isActive ? 'text-[#ffd978]' : 'text-neutral-300'}`}>
+              <h3 className={`font-serif font-bold text-sm sm:text-base ${isActive ? 'text-[#ffd978]' : 'text-neutral-300'}`}>
                 {cls.name}
               </h3>
-              <span className="text-[11px] text-[#938a79] block mt-0.5">{cls.role}</span>
+              <span className="text-[10px] sm:text-[11px] text-[#938a79] block mt-0.5">{cls.role}</span>
             </button>
           );
         })}
       </div>
 
       {/* Class Detail Card */}
-      <div className="medieval-panel rounded-2xl p-6 sm:p-10 border border-[#c99738]/40 mb-12">
+      <div className="medieval-panel rounded-2xl p-5 sm:p-10 border border-[#c99738]/40 mb-12">
         <div className="flex flex-col lg:flex-row gap-8 items-start justify-between">
           <div className="space-y-4 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-[#171d2b] border border-[#c99738]/30 text-xs text-[#ffd978]">

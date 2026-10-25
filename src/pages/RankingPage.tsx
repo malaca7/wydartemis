@@ -221,10 +221,10 @@ export const RankingPage: React.FC = () => {
 
       {/* Tab Switcher & Search Bar */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-2 p-1 rounded-xl bg-[#121620] border border-neutral-800 self-start">
+        <div className="flex items-center gap-2 p-1 rounded-xl bg-[#121620] border border-neutral-800 w-full sm:w-auto">
           <button
             onClick={() => handleTabChange('players')}
-            className={`px-5 py-2.5 rounded-lg text-xs font-serif font-bold tracking-wider uppercase transition-all cursor-pointer flex items-center gap-2 ${
+            className={`flex-1 sm:flex-initial px-4 sm:px-5 py-2.5 rounded-lg text-xs font-serif font-bold tracking-wider uppercase transition-all cursor-pointer flex items-center justify-center gap-2 ${
               tab === 'players'
                 ? 'bg-[#c99738] text-black shadow-md'
                 : 'text-[#a8a090] hover:text-[#ffd978]'
@@ -235,7 +235,7 @@ export const RankingPage: React.FC = () => {
           </button>
           <button
             onClick={() => handleTabChange('guilds')}
-            className={`px-5 py-2.5 rounded-lg text-xs font-serif font-bold tracking-wider uppercase transition-all cursor-pointer flex items-center gap-2 ${
+            className={`flex-1 sm:flex-initial px-4 sm:px-5 py-2.5 rounded-lg text-xs font-serif font-bold tracking-wider uppercase transition-all cursor-pointer flex items-center justify-center gap-2 ${
               tab === 'guilds'
                 ? 'bg-[#c99738] text-black shadow-md'
                 : 'text-[#a8a090] hover:text-[#ffd978]'
@@ -260,16 +260,16 @@ export const RankingPage: React.FC = () => {
 
       {/* Filters & Sorting Bar */}
       {tab === 'players' && (
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6 p-3 rounded-xl bg-[#0e121a] border border-neutral-800/80">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-semibold text-[#8c8475] uppercase tracking-wider mr-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 p-3 rounded-xl bg-[#0e121a] border border-neutral-800/80">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0 w-full sm:w-auto">
+            <span className="text-[11px] font-semibold text-[#8c8475] uppercase tracking-wider mr-1 shrink-0">
               Classe:
             </span>
             {classes.map((cls) => (
               <button
                 key={cls.id}
                 onClick={() => handleClassChange(cls.id)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer shrink-0 ${
                   selectedClass === cls.id
                     ? 'bg-[#c99738]/20 text-[#ffd978] border border-[#c99738]/50'
                     : 'bg-[#141822] text-[#9c9484] hover:text-[#ede3cc] border border-neutral-800'
@@ -280,7 +280,7 @@ export const RankingPage: React.FC = () => {
             ))}
           </div>
 
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto sm:ml-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-neutral-800/60 shrink-0">
             <span className="text-[11px] font-semibold text-[#8c8475] uppercase tracking-wider">
               Ordenar:
             </span>
@@ -425,37 +425,49 @@ export const RankingPage: React.FC = () => {
               Nenhum personagem encontrado.
             </div>
           ) : (
-            paginatedCharacters.items.map((char) => (
-              <div
-                key={char.id}
-                className="medieval-panel rounded-xl p-4 border border-[#c99738]/30 flex flex-col gap-2 relative"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-[#121620] border border-neutral-700 inline-flex items-center justify-center text-xs font-bold font-serif text-[#ffd978]">
-                      #{char.position}
+            paginatedCharacters.items.map((char) => {
+              const stage = char.stage || (char.level >= 355 ? 'Arch' : 'Mortal');
+              return (
+                <div
+                  key={char.id}
+                  className="medieval-panel rounded-xl p-4 border border-[#c99738]/30 flex flex-col gap-2 relative"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-[#121620] border border-neutral-700 inline-flex items-center justify-center text-xs font-bold font-serif text-[#ffd978]">
+                        #{char.position}
+                      </span>
+                      <h3 className="font-serif font-bold text-sm text-[#f5efe2]">
+                        {char.name}
+                      </h3>
+                    </div>
+                    <span className="text-xs font-mono font-bold text-[#ffd978]">
+                      {char.score.toLocaleString('pt-BR')} pts
                     </span>
-                    <h3 className="font-serif font-bold text-sm text-[#f5efe2]">
-                      {char.name}
-                    </h3>
                   </div>
-                  <span className="text-xs font-mono font-bold text-[#ffd978]">
-                    {char.score.toLocaleString('pt-BR')} pts
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs pt-2 border-t border-neutral-800">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] px-2 py-0.5 rounded bg-[#131722] text-[#c99738] border border-[#c99738]/20">
-                      {char.characterClass}
+                  <div className="flex items-center justify-between text-xs pt-2 border-t border-neutral-800">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${
+                        stage === 'Celestial' || stage === 'Sub-Celestial'
+                          ? 'bg-purple-950/60 text-purple-300 border-purple-800/40'
+                          : stage === 'Arch'
+                          ? 'bg-blue-950/60 text-blue-300 border-blue-800/40'
+                          : 'bg-amber-950/60 text-amber-300 border-amber-800/40'
+                      }`}>
+                        {stage}
+                      </span>
+                      <span className="text-[11px] px-2 py-0.5 rounded bg-[#131722] text-[#c99738] border border-[#c99738]/20">
+                        {char.characterClass}
+                      </span>
+                      <span className="text-neutral-400">Nv. {char.level}</span>
+                    </div>
+                    <span className="text-xs text-[#9c9484] truncate max-w-[120px] text-right">
+                      {char.guild || 'Sem Guilda'}
                     </span>
-                    <span className="text-neutral-400">Nível {char.level}</span>
                   </div>
-                  <span className="text-xs text-[#9c9484]">
-                    {char.guild || 'Sem Guilda'}
-                  </span>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
@@ -569,11 +581,11 @@ export const RankingPage: React.FC = () => {
             <strong className="text-[#ffd978]">{currentResult.totalItems}</strong> registros
           </p>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-full py-1">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="p-2 rounded-lg bg-[#141822] border border-neutral-800 text-[#a8a090] hover:text-[#ffd978] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+              className="p-2 rounded-lg bg-[#141822] border border-neutral-800 text-[#a8a090] hover:text-[#ffd978] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shrink-0"
               aria-label="Página anterior"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -583,7 +595,7 @@ export const RankingPage: React.FC = () => {
               <button
                 key={num}
                 onClick={() => setCurrentPage(num)}
-                className={`w-8 h-8 rounded-lg text-xs font-serif font-bold cursor-pointer transition-colors ${
+                className={`w-8 h-8 rounded-lg text-xs font-serif font-bold cursor-pointer transition-colors shrink-0 ${
                   currentPage === num
                     ? 'bg-[#c99738] text-black shadow-md'
                     : 'bg-[#141822] border border-neutral-800 text-[#a8a090] hover:text-[#ffd978]'
@@ -596,7 +608,7 @@ export const RankingPage: React.FC = () => {
             <button
               onClick={() => setCurrentPage((p) => Math.min(currentResult.totalPages, p + 1))}
               disabled={currentPage === currentResult.totalPages}
-              className="p-2 rounded-lg bg-[#141822] border border-neutral-800 text-[#a8a090] hover:text-[#ffd978] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+              className="p-2 rounded-lg bg-[#141822] border border-neutral-800 text-[#a8a090] hover:text-[#ffd978] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shrink-0"
               aria-label="Próxima página"
             >
               <ChevronRight className="w-4 h-4" />

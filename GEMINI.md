@@ -75,3 +75,9 @@ Nunca declarar que um teste passou sem executá-lo. Diferenciar explicitamente:
 ## Critério de qualidade
 
 O resultado deve ser bonito, harmônico, intuitivo, moderno, responsivo e coerente com práticas contemporâneas de design e UX. Os efeitos cinematográficos devem elevar a experiência sem comprometer acessibilidade, desempenho, navegação ou manutenção do código.
+
+## Regra de Deploy Automático (gh-pages)
+
+Sempre que concluir completamente todas as tarefas e modificações solicitadas pelo usuário, validar com os testes e linter, e não houver nenhuma pendência, executar o deploy para o GitHub na branch `gh-pages` utilizando:
+`npm run deploy`
+(que executa `predeploy` -> `npm run test && npm run build` -> publicação na branch `gh-pages`).

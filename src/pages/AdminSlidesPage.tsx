@@ -39,14 +39,14 @@ import { SlideEditModal } from '../components/admin/SlideEditModal';
 import { SlidePreviewModal } from '../components/admin/SlidePreviewModal';
 
 export const AdminSlidesPage: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const [slides, setSlides] = useState<BannerSlide[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Authentication & Passkey State
   const [isLocalAdminUnlocked, setIsLocalAdminUnlocked] = useState(false);
-  const isAdminAuthorized = isUserAdmin(currentUser) || isLocalAdminUnlocked;
+  const isAdminAuthorized = isUserAdmin(currentUser, userProfile) || isLocalAdminUnlocked;
 
   const [inputPasskey, setInputPasskey] = useState('');
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
@@ -346,7 +346,7 @@ export const AdminSlidesPage: React.FC = () => {
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/40 text-[11px] font-semibold text-emerald-300">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Admin Conectado: {currentUser?.email || 'Mestre da Torre'}</span>
+            <span>Admin Conectado: {currentUser?.email || userProfile?.email || 'Mestre da Torre'}</span>
           </span>
 
           <button
@@ -528,55 +528,57 @@ export const AdminSlidesPage: React.FC = () => {
                 key={slide.id}
                 className="p-4 rounded-xl bg-[#0e121a] border border-neutral-800 hover:border-[#c99738]/50 transition-all flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 group"
               >
-                {/* Left: Reordering & Thumbnail */}
-                <div className="flex items-center gap-3 w-full lg:w-auto">
-                  {/* Order controls */}
-                  <div className="flex flex-col items-center gap-1">
-                    <button
-                      onClick={() => handleMoveOrder(index, 'up')}
-                      disabled={isFirst}
-                      className="p-1 rounded bg-[#161b26] hover:bg-[#202838] text-neutral-400 hover:text-[#ffd978] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                      title="Mover para cima"
-                    >
-                      <ArrowUp className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="font-mono text-xs font-bold text-[#ffd978]">
-                      #{slide.order}
-                    </span>
-                    <button
-                      onClick={() => handleMoveOrder(index, 'down')}
-                      disabled={isLast}
-                      className="p-1 rounded bg-[#161b26] hover:bg-[#202838] text-neutral-400 hover:text-[#ffd978] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                      title="Mover para baixo"
-                    >
-                      <ArrowDown className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                {/* Left: Reordering, Thumbnail & Title */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto min-w-0">
+                  <div className="flex items-center gap-3 shrink-0">
+                    {/* Order controls */}
+                    <div className="flex flex-col items-center gap-1">
+                      <button
+                        onClick={() => handleMoveOrder(index, 'up')}
+                        disabled={isFirst}
+                        className="p-1 rounded bg-[#161b26] hover:bg-[#202838] text-neutral-400 hover:text-[#ffd978] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                        title="Mover para cima"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="font-mono text-xs font-bold text-[#ffd978]">
+                        #{slide.order}
+                      </span>
+                      <button
+                        onClick={() => handleMoveOrder(index, 'down')}
+                        disabled={isLast}
+                        className="p-1 rounded bg-[#161b26] hover:bg-[#202838] text-neutral-400 hover:text-[#ffd978] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                        title="Mover para baixo"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
 
-                  {/* Thumbnail */}
-                  <div
-                    onClick={() => setPreviewSlide(slide)}
-                    className="relative w-32 h-18 sm:w-40 sm:h-22 rounded-lg overflow-hidden border border-[#c99738]/40 bg-black shrink-0 cursor-pointer group/thumb"
-                    title="Clique para ampliar pré-visualização"
-                  >
-                    <img
-                      src={slide.imageUrl}
-                      alt={slide.title}
-                      className="w-full h-full object-cover transition-transform group-hover/thumb:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity text-white">
-                      <Eye className="w-4 h-4" />
+                    {/* Thumbnail */}
+                    <div
+                      onClick={() => setPreviewSlide(slide)}
+                      className="relative w-28 h-16 sm:w-36 sm:h-20 md:w-40 md:h-22 rounded-lg overflow-hidden border border-[#c99738]/40 bg-black shrink-0 cursor-pointer group/thumb"
+                      title="Clique para ampliar pré-visualização"
+                    >
+                      <img
+                        src={slide.imageUrl}
+                        alt={slide.title}
+                        className="w-full h-full object-cover transition-transform group-hover/thumb:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity text-white">
+                        <Eye className="w-4 h-4" />
+                      </div>
                     </div>
                   </div>
 
                   {/* Title & Info */}
-                  <div className="space-y-1">
+                  <div className="space-y-1 min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-serif font-bold text-sm sm:text-base text-[#f5ebd6]">
+                      <h3 className="font-serif font-bold text-sm sm:text-base text-[#f5ebd6] truncate">
                         {slide.title}
                       </h3>
                       {slide.subtitle && (
-                        <span className="text-xs text-[#a8a090] hidden md:inline">
+                        <span className="text-xs text-[#a8a090] hidden md:inline truncate">
                           — {slide.subtitle}
                         </span>
                       )}
@@ -584,13 +586,13 @@ export const AdminSlidesPage: React.FC = () => {
 
                     <div className="flex flex-wrap items-center gap-2 text-xs text-[#8c8475]">
                       {slide.buttonText && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-950/50 text-blue-300 border border-blue-800/40 text-[10px]">
-                          <ExternalLink className="w-2.5 h-2.5" />
-                          <span>{slide.buttonText} → {slide.buttonUrl}</span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-950/50 text-blue-300 border border-blue-800/40 text-[10px] max-w-full truncate">
+                          <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                          <span className="truncate">{slide.buttonText} → {slide.buttonUrl}</span>
                         </span>
                       )}
 
-                      <span className="inline-flex items-center gap-1 text-[11px]">
+                      <span className="inline-flex items-center gap-1 text-[11px] shrink-0">
                         <Clock className="w-3 h-3" />
                         <span>
                           {slide.startDate || slide.endDate

@@ -152,10 +152,10 @@ export const CommunityPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="pt-4 border-t border-neutral-800/80 flex items-center justify-between">
+              <div className="pt-4 border-t border-neutral-800/80 flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-serif font-bold text-[#ffd978] group-hover:text-[#fff0ba] flex items-center gap-1.5">
                   <span>{channel.url ? 'Acessar Link Oficial' : 'Aguardando Configuração Oficial'}</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                 </span>
                 <span className="text-[11px] text-[#71695c]">
                   {channel.url ? 'Link Verificado' : 'Aviso ao Clicar'}
@@ -167,7 +167,7 @@ export const CommunityPage: React.FC = () => {
       </div>
 
       {/* Guidelines Section */}
-      <div className="mb-14 medieval-panel rounded-2xl p-6 sm:p-10 border border-[#c99738]/35 shadow-xl">
+      <div className="mb-14 medieval-panel rounded-2xl p-5 sm:p-10 border border-[#c99738]/35 shadow-xl">
         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-neutral-800">
           <Shield className="w-6 h-6 text-[#ffd978]" />
           <div>

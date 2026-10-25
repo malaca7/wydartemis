@@ -297,12 +297,12 @@ export const HomeCarousel: React.FC<HomeCarouselProps> = ({
                 {/* Optional Interactive CTA Button & Badges Overlay */}
                 {slide.buttonText && slide.buttonUrl && (
                   <div
-                    className={`absolute bottom-4 sm:bottom-6 z-20 px-6 sm:px-10 flex ${
+                    className={`absolute z-20 px-4 sm:px-10 flex ${
                       slide.alignment === 'left'
-                        ? 'justify-start left-0'
+                        ? 'bottom-4 sm:bottom-6 justify-start left-0'
                         : slide.alignment === 'center'
-                        ? 'justify-center left-0 right-0'
-                        : 'justify-end right-0'
+                        ? 'bottom-10 sm:bottom-10 justify-center left-0 right-0'
+                        : 'bottom-4 sm:bottom-6 justify-end right-0'
                     }`}
                   >
                     <button
@@ -310,10 +310,10 @@ export const HomeCarousel: React.FC<HomeCarouselProps> = ({
                         e.stopPropagation();
                         handleSlideClick(slide);
                       }}
-                      className="btn-gold-primary px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl text-xs sm:text-sm font-serif font-bold tracking-wide flex items-center gap-2 shadow-[0_8px_25px_rgba(201,151,56,0.45)] group/btn cursor-pointer"
+                      className="btn-gold-primary px-4 py-2 sm:px-6 sm:py-3 rounded-xl text-xs sm:text-sm font-serif font-bold tracking-wide flex items-center gap-2 shadow-[0_8px_25px_rgba(201,151,56,0.45)] group/btn cursor-pointer"
                     >
                       <span>{slide.buttonText}</span>
-                      <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
+                      <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform group-hover/btn:translate-x-1" />
                     </button>
                   </div>
                 )}
@@ -327,18 +327,18 @@ export const HomeCarousel: React.FC<HomeCarouselProps> = ({
           <>
             <button
               onClick={handlePrev}
-              className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-30 p-2.5 sm:p-3 rounded-full bg-[#07090e]/80 hover:bg-[#c99738]/20 border border-[#c99738]/50 hover:border-[#ffd978] text-[#f5ebd6] hover:text-[#ffd978] shadow-[0_4px_15px_rgba(0,0,0,0.8)] backdrop-blur-md transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#ffd978] cursor-pointer"
+              className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-3 rounded-full bg-[#07090e]/80 hover:bg-[#c99738]/20 border border-[#c99738]/50 hover:border-[#ffd978] text-[#f5ebd6] hover:text-[#ffd978] shadow-[0_4px_15px_rgba(0,0,0,0.8)] backdrop-blur-md transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#ffd978] cursor-pointer"
               aria-label="Slide anterior"
             >
-              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+              <ChevronLeft className="w-4 h-4 sm:w-6 sm:h-6" />
             </button>
 
             <button
               onClick={handleNext}
-              className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-30 p-2.5 sm:p-3 rounded-full bg-[#07090e]/80 hover:bg-[#c99738]/20 border border-[#c99738]/50 hover:border-[#ffd978] text-[#f5ebd6] hover:text-[#ffd978] shadow-[0_4px_15px_rgba(0,0,0,0.8)] backdrop-blur-md transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#ffd978] cursor-pointer"
+              className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-3 rounded-full bg-[#07090e]/80 hover:bg-[#c99738]/20 border border-[#c99738]/50 hover:border-[#ffd978] text-[#f5ebd6] hover:text-[#ffd978] shadow-[0_4px_15px_rgba(0,0,0,0.8)] backdrop-blur-md transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#ffd978] cursor-pointer"
               aria-label="Próximo slide"
             >
-              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+              <ChevronRight className="w-4 h-4 sm:w-6 sm:h-6" />
             </button>
           </>
         )}

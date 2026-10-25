@@ -54,18 +54,18 @@ export const PendingFeatureModal: React.FC = () => {
         ref={modalRef}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg overflow-hidden rounded-xl bg-gradient-to-b from-[#181d28] to-[#0c0e14] border-2 border-[#c99738]/40 shadow-[0_20px_50px_rgba(0,0,0,0.9),0_0_30px_rgba(201,151,56,0.15)] text-[#e8dec7] focus:outline-none"
+        className="relative w-full max-w-lg rounded-xl bg-gradient-to-b from-[#181d28] to-[#0c0e14] border-2 border-[#c99738]/40 shadow-[0_20px_50px_rgba(0,0,0,0.9),0_0_30px_rgba(201,151,56,0.15)] text-[#e8dec7] focus:outline-none max-h-[90vh] overflow-y-auto"
       >
         {/* Ornate corner accents */}
-        <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-[#ffd978]" />
-        <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-[#ffd978]" />
-        <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-[#ffd978]" />
-        <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-[#ffd978]" />
+        <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-[#ffd978] pointer-events-none" />
+        <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-[#ffd978] pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-[#ffd978] pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-[#ffd978] pointer-events-none" />
 
         {/* Top Glow Bar */}
         <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#ffd978] to-transparent opacity-75" />
 
-        <div className="p-6 md:p-8">
+        <div className="p-5 sm:p-6 md:p-8">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="relative w-12 h-12 rounded-xl bg-black border border-[#c99738]/50 shadow-[0_0_15px_rgba(59,130,246,0.3)] flex items-center justify-center overflow-hidden shrink-0 p-0.5">
@@ -114,10 +114,10 @@ export const PendingFeatureModal: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="mt-6 flex justify-end">
             <button
               onClick={closePendingModal}
-              className="btn-gold-primary px-6 py-2.5 rounded text-sm cursor-pointer"
+              className="w-full sm:w-auto btn-gold-primary px-6 py-2.5 rounded text-sm cursor-pointer text-center"
             >
               Compreendi
             </button>

@@ -100,14 +100,14 @@ export const FeaturesOverview: React.FC = () => {
       </div>
 
       {/* Feature Cards Grid with Staggered Scroll Reveal */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
         {features.map((feat, index) => {
           const Icon = feat.icon;
           return (
             <div
               key={index}
               style={{ transitionDelay: `${index * 120}ms` }}
-              className={`medieval-panel-interactive rounded-2xl p-6 flex flex-col justify-between relative group overflow-hidden scroll-reveal ${feat.glowColor}`}
+              className={`medieval-panel-interactive rounded-2xl p-5 sm:p-6 flex flex-col justify-between relative group overflow-hidden scroll-reveal ${feat.glowColor}`}
             >
               {/* Top ambient highlight on card */}
               <div className="absolute top-0 right-0 left-0 h-[2px] bg-gradient-to-r from-transparent via-[#ffd978]/30 to-transparent group-hover:via-[#ffd978]/80 transition-all duration-500" />
@@ -150,13 +150,13 @@ export const FeaturesOverview: React.FC = () => {
       </div>
 
       {/* Server Transparency Callout Banner with Scroll Reveal */}
-      <div className="mt-14 medieval-panel rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 border border-[#c99738]/35 relative scroll-reveal shadow-2xl">
+      <div className="mt-12 sm:mt-14 medieval-panel rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 border border-[#c99738]/35 relative scroll-reveal shadow-2xl">
         {/* Subtle background glow */}
         <div className="absolute inset-0 bg-radial from-[#c99738]/5 via-transparent to-transparent pointer-events-none rounded-2xl" />
 
         <div className="space-y-2 text-center md:text-left relative z-10">
           <div className="flex items-center justify-center md:justify-start gap-2.5">
-            <Award className="w-5 h-5 text-[#ffd978]" />
+            <Award className="w-5 h-5 text-[#ffd978] shrink-0" />
             <h4 className="font-serif font-bold text-lg md:text-xl text-[#f5efe2]">
               Compromisso com o Equilíbrio e a Nostalgia
             </h4>
@@ -175,7 +175,7 @@ export const FeaturesOverview: React.FC = () => {
               type: 'general',
             })
           }
-          className="btn-gold-primary px-7 py-3.5 rounded-xl text-xs font-serif font-bold shrink-0 cursor-pointer shadow-lg relative z-10"
+          className="w-full sm:w-auto text-center btn-gold-primary px-7 py-3.5 rounded-xl text-xs font-serif font-bold shrink-0 cursor-pointer shadow-lg relative z-10"
         >
           Ver Manifesto do Servidor
         </button>

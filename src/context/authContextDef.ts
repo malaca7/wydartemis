@@ -5,6 +5,7 @@ import type { UserAccountDoc } from '../services/firebaseService';
 export interface AuthContextType {
   currentUser: FirebaseUser | null;
   userProfile: UserAccountDoc | null;
+  isAuthenticated: boolean;
   isLoading: boolean;
   login: (emailOrUsername: string, pass: string) => Promise<UserAccountDoc | null>;
   register: (username: string, email: string, pass: string) => Promise<UserAccountDoc>;

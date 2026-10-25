@@ -125,7 +125,7 @@ export const ServerStatusPage: React.FC = () => {
 
           {/* Firestore Telemetry Status Box & Refresh */}
           <div className="w-full lg:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="p-4 rounded-xl bg-[#0b0e14] border border-[#c99738]/30 flex flex-col gap-1 text-xs shadow-inner min-w-[220px]">
+            <div className="p-4 rounded-xl bg-[#0b0e14] border border-[#c99738]/30 flex flex-col gap-1 text-xs shadow-inner w-full sm:w-auto min-w-0 sm:min-w-[220px]">
               <span className="text-[10px] text-neutral-400 uppercase font-semibold">Base de Dados</span>
               <div className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${isFirebaseConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
