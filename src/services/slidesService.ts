@@ -17,14 +17,10 @@ import { initialDefaultSlides } from '../data/slidesData';
 
 const SLIDES_COLLECTION = 'slides';
 const LOCAL_STORAGE_KEY = 'wyd_artemis_slides_store';
-const ADMIN_PASSKEY_KEY = 'wyd_artemis_admin_key';
+import { isAccountAdmin, AUTHORIZED_ADMIN_EMAILS } from '../utils/adminAuth';
+export { AUTHORIZED_ADMIN_EMAILS };
 
-// Authorized emails that have inherent administrative rights
-const AUTHORIZED_ADMIN_EMAILS = [
-  'malaca7x@gmail.com',
-  'admin@wydartemis.com.br',
-  'malaca@artemis.realm',
-];
+const ADMIN_PASSKEY_KEY = 'wydartemis_admin_key';
 
 /**
  * Carrega slides do LocalStorage como fallback offline.
@@ -67,11 +63,9 @@ export function isUserAdmin(
   profile?: UserAccountDoc | null
 ): boolean {
   const email = user?.email || profile?.email;
-  const username = profile?.displayName;
-  if (
-    (email && AUTHORIZED_ADMIN_EMAILS.includes(email.toLowerCase())) ||
-    (username && (username.toLowerCase() === 'malaca' || username.toLowerCase() === 'admin'))
-  ) {
+  const username = profile?.displayName || user?.displayName;
+  const role = profile?.role;
+  if (isAccountAdmin(email, username, role)) {
     return true;
   }
   if (typeof window !== 'undefined') {

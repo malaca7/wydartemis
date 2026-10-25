@@ -233,15 +233,30 @@ export interface UserAccountDoc {
   accountCode: string;
   characters: DemoCharacter[];
   createdAt: string;
+  role?: 'admin' | 'player' | 'gamemaster';
 }
 
 interface StoredAccountDoc extends UserAccountDoc {
   passwordHash?: string;
 }
 
+export {
+  AUTHORIZED_ADMIN_EMAILS,
+  AUTHORIZED_ADMIN_USERNAMES,
+  isAccountAdmin,
+} from '../utils/adminAuth';
+import { isAccountAdmin } from '../utils/adminAuth';
+
 export function saveAccountToLocalCache(profile: UserAccountDoc, pass?: string): void {
   if (typeof window === 'undefined') return;
   try {
+    const isAdmin = isAccountAdmin(profile.email, profile.displayName, profile.role);
+    if (isAdmin) {
+      profile.role = 'admin';
+    } else if (!profile.role) {
+      profile.role = 'player';
+    }
+
     const raw = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
     const list: StoredAccountDoc[] = raw ? JSON.parse(raw) : [];
     const idx = list.findIndex(
@@ -266,16 +281,54 @@ export function getAccountFromLocalCache(queryStr: string): StoredAccountDoc | n
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
-    if (!raw) return null;
-    const list: StoredAccountDoc[] = JSON.parse(raw);
+    let list: StoredAccountDoc[] = raw ? JSON.parse(raw) : [];
     const q = queryStr.toLowerCase().trim();
-    const found = list.find(
+    let found = list.find(
       (u) =>
         u.email.toLowerCase() === q ||
         u.displayName.toLowerCase() === q ||
         u.uid.toLowerCase() === q
     );
-    return found || null;
+
+    // Se a busca for especificamente pelo admin MALACA e ainda não existir no cache local, inicializa
+    if (!found && (q === 'malaca' || q === 'malaca7x@gmail.com' || q === 'malaca@artemis.realm')) {
+      const defaultAdmin: StoredAccountDoc = {
+        uid: 'user_malaca_master_01',
+        email: 'malaca7x@gmail.com',
+        displayName: 'MALACA',
+        accountCode: 'ART-ADMIN-001',
+        role: 'admin',
+        characters: [
+          {
+            id: 'char-malaca-1',
+            name: 'MALACA_TK',
+            characterClass: 'TransKnight',
+            level: 400,
+            stage: 'Celestial',
+          },
+          {
+            id: 'char-malaca-2',
+            name: 'MALACA_Foema',
+            characterClass: 'Foema',
+            level: 400,
+            stage: 'Celestial',
+          },
+        ],
+        createdAt: '25 de Outubro de 2026',
+      };
+      list.push(defaultAdmin);
+      localStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(list));
+      return defaultAdmin;
+    }
+
+    if (found) {
+      if (isAccountAdmin(found.email, found.displayName, found.role)) {
+        found.role = 'admin';
+      }
+      return found;
+    }
+
+    return null;
   } catch {
     return null;
   }
@@ -285,7 +338,12 @@ export function getActiveLocalSession(): UserAccountDoc | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(ACTIVE_SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const session: UserAccountDoc = JSON.parse(raw);
+    if (isAccountAdmin(session.email, session.displayName, session.role)) {
+      session.role = 'admin';
+    }
+    return session;
   } catch {
     return null;
   }
@@ -307,27 +365,47 @@ export async function registerWithFirebase(
 ): Promise<UserAccountDoc> {
   const cleanUsername = username.trim();
   const cleanEmail = email.trim();
-  let uid = `user_${cleanUsername.toLowerCase().replace(/[^a-z0-9]/g, '')}_${Date.now()}`;
+  const isAdmin = isAccountAdmin(cleanEmail, cleanUsername);
+  let uid = isAdmin
+    ? 'user_malaca_master_01'
+    : `user_${cleanUsername.toLowerCase().replace(/[^a-z0-9]/g, '')}_${Date.now()}`;
 
   const randomDigits = Math.floor(1000 + Math.random() * 9000);
-  const accountCode = `ART-2026-${randomDigits}`;
+  const accountCode = isAdmin ? 'ART-ADMIN-001' : `ART-2026-${randomDigits}`;
 
-  const starterCharacters: DemoCharacter[] = [
-    {
-      id: `char-${uid}-1`,
-      name: `${cleanUsername}_TK`,
-      characterClass: 'TransKnight',
-      level: 1,
-      stage: 'Mortal',
-    },
-    {
-      id: `char-${uid}-2`,
-      name: `${cleanUsername}_Foema`,
-      characterClass: 'Foema',
-      level: 1,
-      stage: 'Mortal',
-    },
-  ];
+  const starterCharacters: DemoCharacter[] = isAdmin
+    ? [
+        {
+          id: `char-${uid}-1`,
+          name: `${cleanUsername}_TK`,
+          characterClass: 'TransKnight',
+          level: 400,
+          stage: 'Celestial',
+        },
+        {
+          id: `char-${uid}-2`,
+          name: `${cleanUsername}_Foema`,
+          characterClass: 'Foema',
+          level: 400,
+          stage: 'Celestial',
+        },
+      ]
+    : [
+        {
+          id: `char-${uid}-1`,
+          name: `${cleanUsername}_TK`,
+          characterClass: 'TransKnight',
+          level: 1,
+          stage: 'Mortal',
+        },
+        {
+          id: `char-${uid}-2`,
+          name: `${cleanUsername}_Foema`,
+          characterClass: 'Foema',
+          level: 1,
+          stage: 'Mortal',
+        },
+      ];
 
   const profileData: UserAccountDoc = {
     uid,
@@ -336,6 +414,7 @@ export async function registerWithFirebase(
     accountCode,
     characters: starterCharacters,
     createdAt: '25 de Outubro de 2026',
+    role: isAdmin ? 'admin' : 'player',
   };
 
   // 1. Salva imediatamente no cache local para resposta ultra-rápida (UX instantânea)
@@ -400,13 +479,23 @@ export async function loginWithFirebase(
   let email = queryStr;
 
   if (!email.includes('@')) {
-    email = `${email.toLowerCase().replace(/[^a-z0-9_]/g, '')}@artemis.realm`;
+    if (queryStr.toLowerCase() === 'malaca') {
+      email = 'malaca7x@gmail.com';
+    } else {
+      email = `${email.toLowerCase().replace(/[^a-z0-9_]/g, '')}@artemis.realm`;
+    }
   }
 
   // 1. Consulta o cache local
   const cached = getAccountFromLocalCache(queryStr);
   if (cached && cached.passwordHash && cached.passwordHash !== pass) {
     throw new Error('Usuário ou senha incorretos.');
+  }
+
+  // Se for admin e ainda não possui senha fixada no cache local, grava a senha informada
+  if (cached && !cached.passwordHash && isAccountAdmin(cached.email, cached.displayName, cached.role)) {
+    cached.passwordHash = pass;
+    saveAccountToLocalCache(cached, pass);
   }
 
   // 2. Tenta autenticação na nuvem se disponível
@@ -460,20 +549,39 @@ export async function loginWithFirebase(
   }
 
   // 4. Criação de sessão padrão caso seja o primeiro acesso local
+  const isAdmin = isAccountAdmin(email, emailOrUsername);
   const newProfile: UserAccountDoc = {
-    uid: `user_${Date.now()}`,
-    email: email.includes('@') ? email : `${emailOrUsername}@artemis.realm`,
-    displayName: emailOrUsername.split('@')[0],
-    accountCode: `ART-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-    characters: [
-      {
-        id: `char-1`,
-        name: `${emailOrUsername.split('@')[0]}_TK`,
-        characterClass: 'TransKnight',
-        level: 1,
-        stage: 'Mortal',
-      },
-    ],
+    uid: isAdmin ? 'user_malaca_master_01' : `user_${Date.now()}`,
+    email: email.includes('@') ? email : (isAdmin ? 'malaca7x@gmail.com' : `${emailOrUsername}@artemis.realm`),
+    displayName: isAdmin && (emailOrUsername.toLowerCase() === 'malaca' || email.toLowerCase() === 'malaca7x@gmail.com') ? 'MALACA' : emailOrUsername.split('@')[0],
+    accountCode: isAdmin ? 'ART-ADMIN-001' : `ART-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+    role: isAdmin ? 'admin' : 'player',
+    characters: isAdmin
+      ? [
+          {
+            id: 'char-malaca-1',
+            name: 'MALACA_TK',
+            characterClass: 'TransKnight',
+            level: 400,
+            stage: 'Celestial',
+          },
+          {
+            id: 'char-malaca-2',
+            name: 'MALACA_Foema',
+            characterClass: 'Foema',
+            level: 400,
+            stage: 'Celestial',
+          },
+        ]
+      : [
+          {
+            id: `char-1`,
+            name: `${emailOrUsername.split('@')[0]}_TK`,
+            characterClass: 'TransKnight',
+            level: 1,
+            stage: 'Mortal',
+          },
+        ],
     createdAt: '25 de Outubro de 2026',
   };
   saveAccountToLocalCache(newProfile, pass);
@@ -503,20 +611,39 @@ export async function fetchUserProfile(uid: string): Promise<UserAccountDoc | nu
   const currentUser = auth.currentUser;
   if (!currentUser) return getActiveLocalSession();
 
+  const isAdmin = isAccountAdmin(currentUser.email, currentUser.displayName);
   return {
     uid: currentUser.uid,
     email: currentUser.email || '',
-    displayName: currentUser.displayName || 'Guerreiro_Artemis',
-    accountCode: `ART-${currentUser.uid.slice(0, 6).toUpperCase()}`,
-    characters: [
-      {
-        id: `c-default-1`,
-        name: `${currentUser.displayName || 'Hero'}_TK`,
-        characterClass: 'TransKnight',
-        level: 1,
-        stage: 'Mortal',
-      },
-    ],
+    displayName: currentUser.displayName || (isAdmin ? 'MALACA' : 'Guerreiro_Artemis'),
+    accountCode: isAdmin ? 'ART-ADMIN-001' : `ART-${currentUser.uid.slice(0, 6).toUpperCase()}`,
+    role: isAdmin ? 'admin' : 'player',
+    characters: isAdmin
+      ? [
+          {
+            id: 'char-malaca-1',
+            name: `${currentUser.displayName || 'MALACA'}_TK`,
+            characterClass: 'TransKnight',
+            level: 400,
+            stage: 'Celestial',
+          },
+          {
+            id: 'char-malaca-2',
+            name: `${currentUser.displayName || 'MALACA'}_Foema`,
+            characterClass: 'Foema',
+            level: 400,
+            stage: 'Celestial',
+          },
+        ]
+      : [
+          {
+            id: `c-default-1`,
+            name: `${currentUser.displayName || 'Hero'}_TK`,
+            characterClass: 'TransKnight',
+            level: 1,
+            stage: 'Mortal',
+          },
+        ],
     createdAt: '25 de Outubro de 2026',
   };
 }

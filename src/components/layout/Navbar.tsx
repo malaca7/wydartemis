@@ -7,9 +7,11 @@ import {
   X,
   Download,
   User,
+  Shield,
   ChevronRight,
 } from 'lucide-react';
 import type { NavItem } from '../../types';
+import { isUserAdmin } from '../../services/slidesService';
 
 const navItems: NavItem[] = [
   { name: 'Início', href: '/' },
@@ -25,6 +27,7 @@ const navItems: NavItem[] = [
 export const Navbar: React.FC = () => {
   const { currentUser, userProfile } = useAuth();
   const activeUser = currentUser || userProfile;
+  const isAdmin = isUserAdmin(currentUser, userProfile);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
@@ -138,14 +141,33 @@ export const Navbar: React.FC = () => {
 
             {/* Desktop Action Buttons (Visible on lg and above) */}
             <div className="hidden lg:flex items-center gap-3">
+              {isAdmin && (
+                <Link
+                  to="/admin/slides"
+                  className="btn-gold-primary px-3 py-2 rounded text-xs flex items-center gap-1.5 cursor-pointer shadow-[0_0_12px_rgba(201,151,56,0.35)]"
+                  title="Painel de Administração Oficial"
+                >
+                  <Shield className="w-3.5 h-3.5 text-[#0a0d14]" />
+                  <span className="font-semibold text-[#0a0d14]">Painel Admin</span>
+                </Link>
+              )}
+
               <Link
                 to="/area-jogador"
-                className="btn-medieval-secondary px-4 py-2 rounded text-xs flex items-center gap-2 cursor-pointer"
+                className={`btn-medieval-secondary px-4 py-2 rounded text-xs flex items-center gap-2 cursor-pointer ${
+                  isAdmin ? 'border-[#ffd978]/60 bg-[#19150d]' : ''
+                }`}
                 title={activeUser ? `Logado como ${activeUser.displayName || activeUser.email}` : "Área do Jogador"}
               >
                 <User className="w-3.5 h-3.5 text-[#ffd978]" />
                 <span>{activeUser ? (activeUser.displayName || 'Minha Conta') : 'Área do Jogador'}</span>
-                {activeUser && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                {isAdmin ? (
+                  <span className="text-[9px] font-bold text-[#ffd978] bg-[#ffd978]/20 px-1.5 py-0.2 rounded border border-[#ffd978]/40">
+                    ADMIN
+                  </span>
+                ) : activeUser ? (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                ) : null}
               </Link>
 
               <button
@@ -264,14 +286,33 @@ export const Navbar: React.FC = () => {
 
             {/* Bottom Actions inside drawer */}
             <div className="pt-6 border-t border-neutral-800 space-y-3">
+              {isAdmin && (
+                <Link
+                  to="/admin/slides"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="w-full btn-gold-primary py-2.5 rounded text-xs flex items-center justify-center gap-2 shadow-[0_0_12px_rgba(201,151,56,0.3)] font-bold"
+                >
+                  <Shield className="w-4 h-4" />
+                  <span>Painel Administrativo</span>
+                </Link>
+              )}
+
               <Link
                 to="/area-jogador"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="w-full btn-medieval-secondary py-2.5 rounded text-xs flex items-center justify-center gap-2"
+                className={`w-full btn-medieval-secondary py-2.5 rounded text-xs flex items-center justify-center gap-2 ${
+                  isAdmin ? 'border-[#ffd978]/60 bg-[#19150d]' : ''
+                }`}
               >
                 <User className="w-4 h-4 text-[#ffd978]" />
                 <span>{activeUser ? (activeUser.displayName || 'Minha Conta') : 'Área do Jogador'}</span>
-                {activeUser && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                {isAdmin ? (
+                  <span className="text-[9px] font-bold text-[#ffd978] bg-[#ffd978]/20 px-1.5 py-0.2 rounded border border-[#ffd978]/40">
+                    ADMIN
+                  </span>
+                ) : activeUser ? (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                ) : null}
               </Link>
 
               <button

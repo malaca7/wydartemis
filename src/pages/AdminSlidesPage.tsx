@@ -320,15 +320,24 @@ export const AdminSlidesPage: React.FC = () => {
             </button>
           </form>
 
-          <div className="mt-6 pt-4 border-t border-neutral-800 text-xs text-[#8c8475]">
-            <Link to="/" className="text-[#ffd978] hover:underline">
-              ← Retornar à Página Inicial
-            </Link>
+          <div className="mt-6 pt-4 border-t border-neutral-800 text-xs text-[#8c8475] space-y-2">
+            <p>
+              Ou faça login na <Link to="/area-jogador" className="text-[#ffd978] hover:underline font-semibold">Área do Jogador</Link> com a conta de administrador <strong>MALACA</strong> (<code>malaca7x@gmail.com</code>).
+            </p>
+            <div>
+              <Link to="/" className="text-[#ffd978] hover:underline">
+                ← Retornar à Página Inicial
+              </Link>
+            </div>
           </div>
         </div>
       </div>
     );
   }
+
+  const activeAdminLabel = userProfile?.displayName
+    ? `${userProfile.displayName} (${userProfile.email || 'malaca7x@gmail.com'})`
+    : (currentUser?.email ? `${currentUser.displayName || 'MALACA'} (${currentUser.email})` : 'MALACA (malaca7x@gmail.com)');
 
   return (
     <div className="pt-28 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -346,7 +355,7 @@ export const AdminSlidesPage: React.FC = () => {
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/40 text-[11px] font-semibold text-emerald-300">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Admin Conectado: {currentUser?.email || userProfile?.email || 'Mestre da Torre'}</span>
+            <span>Admin Conectado: {activeAdminLabel}</span>
           </span>
 
           <button

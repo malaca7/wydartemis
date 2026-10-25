@@ -25,6 +25,11 @@ import {
   evaluatePasswordStrength,
   hashPassword,
 } from '../utils/security.ts';
+import {
+  isAccountAdmin,
+  AUTHORIZED_ADMIN_EMAILS,
+  AUTHORIZED_ADMIN_USERNAMES,
+} from '../utils/adminAuth.ts';
 
 test('Ranking: sorts characters by score descending by default', () => {
   const ranked = getRankedCharacters();
@@ -324,5 +329,39 @@ test('Security: hashPassword produces hashed output without plaintext leakage', 
   assert.notEqual(hash, password);
   assert.ok(typeof hash === 'string');
 });
+
+// ---------------------------------------------------------------------------
+// Testes de Cargo e Acesso de Administrador (MALACA & malaca7x@gmail.com)
+// ---------------------------------------------------------------------------
+
+test('Admin Auth: MALACA with email malaca7x@gmail.com has administrator role and privileges', () => {
+  assert.ok(AUTHORIZED_ADMIN_EMAILS.includes('malaca7x@gmail.com'));
+  assert.ok(AUTHORIZED_ADMIN_USERNAMES.includes('malaca'));
+
+  // Por e-mail oficial
+  assert.equal(isAccountAdmin('malaca7x@gmail.com', null, null), true);
+  // Por nome de usuário oficial
+  assert.equal(isAccountAdmin(null, 'MALACA', null), true);
+  // Por ambos
+  assert.equal(isAccountAdmin('malaca7x@gmail.com', 'MALACA', 'admin'), true);
+});
+
+test('Admin Auth: handles case-insensitivity and whitespace for MALACA and malaca7x@gmail.com', () => {
+  assert.equal(isAccountAdmin('  MALACA7X@GMAIL.COM  ', null, null), true);
+  assert.equal(isAccountAdmin('Malaca7x@Gmail.Com', 'malaca', null), true);
+  assert.equal(isAccountAdmin(null, '   MaLaCa   ', null), true);
+});
+
+test('Admin Auth: denies administrator privileges to ordinary users without admin credentials', () => {
+  assert.equal(isAccountAdmin('guerreiro@gmail.com', 'Guerreiro123', null), false);
+  assert.equal(isAccountAdmin('jogador@artemis.realm', 'PlayerOne', 'player'), false);
+  assert.equal(isAccountAdmin(null, null, null), false);
+});
+
+test('Admin Auth: role admin or administrator grants immediate admin status', () => {
+  assert.equal(isAccountAdmin('outro@email.com', 'OutroUser', 'admin'), true);
+  assert.equal(isAccountAdmin(null, null, 'administrator'), true);
+});
+
 
 

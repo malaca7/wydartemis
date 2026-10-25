@@ -26,6 +26,7 @@ import { initialDemoProfile, mockAccountActivities } from '../data/playerData';
 import type { DemoPlayerProfile, DemoCharacter } from '../types';
 import { sanitizeText, evaluatePasswordStrength } from '../utils/security';
 import { CharacterDetailModal } from '../components/player/CharacterDetailModal';
+import { isUserAdmin } from '../services/slidesService';
 
 export const PlayerAreaPage: React.FC = () => {
   const {
@@ -57,6 +58,7 @@ export const PlayerAreaPage: React.FC = () => {
   const passwordStrength = useMemo(() => evaluatePasswordStrength(password), [password]);
 
   const isUserAuthenticated = Boolean(isAuthenticated || demoSession);
+  const isAdmin = isUserAdmin(currentUser, userProfile);
 
   const activeDisplayName =
     userProfile?.displayName || currentUser?.displayName || demoSession?.displayName || 'Guerreiro_Artemis';
@@ -261,16 +263,22 @@ export const PlayerAreaPage: React.FC = () => {
                   <User className="w-7 h-7" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="font-serif font-bold text-2xl text-[#f5efe2]">
                       {activeDisplayName}
                     </h2>
+                    {isAdmin && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-serif font-bold text-[#ffd978] bg-[#ffd978]/15 px-2.5 py-0.5 rounded-full border border-[#c99738]/60 shadow-[0_0_12px_rgba(255,217,120,0.35)]">
+                        <Shield className="w-3.5 h-3.5 text-[#ffd978]" />
+                        <span>Administrador Geral</span>
+                      </span>
+                    )}
                     <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
                       {currentUser || userProfile ? 'Conta Artemis Ativa' : 'Sessão Demonstrativa'}
                     </span>
                   </div>
                   <p className="text-xs text-[#9c9484] font-mono mt-0.5">
-                    Código de Registro: {activeAccountCode}
+                    Código de Registro: {activeAccountCode} • E-mail: {userProfile?.email || currentUser?.email || (isAdmin ? 'malaca7x@gmail.com' : 'Não informado')}
                   </p>
                 </div>
               </div>
@@ -278,11 +286,15 @@ export const PlayerAreaPage: React.FC = () => {
               <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full md:w-auto">
                 <Link
                   to="/admin/slides"
-                  className="flex-1 sm:flex-initial justify-center btn-gold-primary px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-md"
+                  className={`flex-1 sm:flex-initial justify-center px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-md ${
+                    isAdmin
+                      ? 'btn-gold-primary font-bold shadow-[0_0_14px_rgba(201,151,56,0.35)]'
+                      : 'btn-gold-primary'
+                  }`}
                   title="Acessar painel de gerenciamento de slides e banners"
                 >
                   <Layers className="w-3.5 h-3.5" />
-                  <span>Gerenciar Slides</span>
+                  <span>{isAdmin ? 'Painel Administrativo' : 'Gerenciar Slides'}</span>
                 </Link>
 
                 <button
@@ -305,11 +317,18 @@ export const PlayerAreaPage: React.FC = () => {
             </div>
 
             {/* Account Quick Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-6">
               <div className="p-3.5 rounded-xl bg-[#0f131c] border border-neutral-800">
                 <span className="text-[11px] text-[#8c8475] uppercase block">Personagens</span>
                 <span className="text-xl font-serif font-bold text-[#ffd978]">
                   {activeCharacters.length} Registrados
+                </span>
+              </div>
+              <div className={`p-3.5 rounded-xl ${isAdmin ? 'bg-[#18140c] border border-[#ffd978]/40 shadow-[0_0_12px_rgba(255,217,120,0.12)]' : 'bg-[#0f131c] border border-neutral-800'}`}>
+                <span className="text-[11px] text-[#8c8475] uppercase block">Cargo / Permissão</span>
+                <span className={`text-sm font-serif font-bold flex items-center gap-1.5 mt-1 ${isAdmin ? 'text-[#ffd978]' : 'text-[#f5efe2]'}`}>
+                  <Shield className={`w-3.5 h-3.5 ${isAdmin ? 'text-[#ffd978]' : 'text-neutral-400'}`} />
+                  {isAdmin ? 'Administrador Geral' : 'Guerreiro Artemis'}
                 </span>
               </div>
               <div className="p-3.5 rounded-xl bg-[#0f131c] border border-neutral-800">
@@ -322,11 +341,45 @@ export const PlayerAreaPage: React.FC = () => {
               <div className="p-3.5 rounded-xl bg-[#0f131c] border border-neutral-800">
                 <span className="text-[11px] text-[#8c8475] uppercase block">Data de Cadastro</span>
                 <span className="text-sm font-mono text-[#f5efe2] block mt-1">
-                  {userProfile?.createdAt || '20 de Outubro de 2026'}
+                  {userProfile?.createdAt || '25 de Outubro de 2026'}
                 </span>
               </div>
             </div>
           </div>
+
+          {/* Exclusive Admin Access Banner */}
+          {isAdmin && (
+            <div className="medieval-panel rounded-2xl p-6 border border-[#ffd978]/50 bg-gradient-to-r from-[#17140b] via-[#0f131d] to-[#17140b] shadow-[0_4px_24px_rgba(201,151,56,0.18)]">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1 rounded bg-[#ffd978]/20 border border-[#ffd978]/40 text-[#ffd978]">
+                      <Shield className="w-4 h-4" />
+                    </span>
+                    <h3 className="font-serif font-bold text-lg text-[#ffd978]">
+                      Painel de Acesso do Administrador
+                    </h3>
+                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700/50">
+                      Acesso Mestre
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#d6cebe] leading-relaxed">
+                    Conta <strong className="text-[#ffd978]">MALACA</strong> reconhecida com autoridade de <strong>Administrador do Servidor</strong> (<span className="text-[#ffd978]/90 font-mono">malaca7x@gmail.com</span>). Você possui controle total sobre carrossel de slides, moderação de publicações e exportação de backups.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Link
+                    to="/admin/slides"
+                    className="btn-gold-primary px-4 py-2.5 rounded-xl text-xs font-serif font-bold flex items-center gap-2 shadow-lg cursor-pointer"
+                  >
+                    <Layers className="w-4 h-4" />
+                    <span>Acessar Painel de Slides</span>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Characters Section */}
           <div className="medieval-panel rounded-2xl p-6 sm:p-8 border border-[#c99738]/30">
