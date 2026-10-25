@@ -140,10 +140,22 @@ export interface DemoCharacter {
   stage: string;
 }
 
+export interface GameAccount {
+  id: string;
+  username: string;
+  password?: string;
+  numericPin?: string; // Sub-senha de 6 dígitos numéricos
+  status: 'active' | 'blocked' | 'suspended';
+  createdAt: string;
+  characters: DemoCharacter[]; // Até 4 personagens por conta de jogo no WYD
+  notes?: string;
+}
+
 export interface DemoPlayerProfile {
   displayName: string;
   accountCode: string;
   characters: DemoCharacter[];
+  gameAccounts?: GameAccount[];
 }
 
 // ---------------------------------------------------------------------------

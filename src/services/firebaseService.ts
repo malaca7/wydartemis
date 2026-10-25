@@ -28,6 +28,7 @@ import type {
   GuildRecord,
   ServerStatusSnapshot,
   DemoCharacter,
+  GameAccount,
   CartLine,
 } from '../types';
 import { mockCharacters, mockGuilds } from '../data/rankingData';
@@ -232,6 +233,7 @@ export interface UserAccountDoc {
   displayName: string;
   accountCode: string;
   characters: DemoCharacter[];
+  gameAccounts?: GameAccount[];
   createdAt: string;
   role?: 'admin' | 'player' | 'gamemaster';
 }
@@ -264,7 +266,9 @@ export function saveAccountToLocalCache(profile: UserAccountDoc, pass?: string):
         u.email.toLowerCase() === profile.email.toLowerCase() ||
         u.displayName.toLowerCase() === profile.displayName.toLowerCase()
     );
-    const item: StoredAccountDoc = { ...profile, passwordHash: pass };
+    const existingPass = idx >= 0 ? list[idx].passwordHash : undefined;
+    const finalPass = pass !== undefined ? pass : existingPass;
+    const item: StoredAccountDoc = { ...profile, passwordHash: finalPass };
     if (idx >= 0) {
       list[idx] = item;
     } else {
@@ -668,15 +672,82 @@ export async function sendPasswordReset(email: string): Promise<void> {
   }
 }
 
-export async function updateAccountPassword(newPass: string): Promise<void> {
-  const session = getActiveLocalSession();
-  if (session) {
-    saveAccountToLocalCache(session, newPass);
+export async function updateAccountPassword(
+  newPass: string,
+  oldPass?: string,
+  userProfile?: UserAccountDoc | null
+): Promise<void> {
+  const cleanNew = newPass ? newPass.trim() : '';
+  if (!cleanNew || cleanNew.length < 6) {
+    throw new Error('A nova senha deve possuir pelo menos 6 caracteres.');
   }
+
+  // Obter sessão atual ou perfil informado
+  const currentSession = userProfile || getActiveLocalSession();
+  const rawAccounts = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_ACCOUNTS_KEY) : null;
+  const accounts: StoredAccountDoc[] = rawAccounts ? JSON.parse(rawAccounts) : [];
+
+  let targetAccount: StoredAccountDoc | null = null;
+  let targetIndex = -1;
+
+  if (currentSession) {
+    targetIndex = accounts.findIndex(
+      (a) =>
+        a.uid === currentSession.uid ||
+        a.email.toLowerCase() === currentSession.email.toLowerCase() ||
+        a.displayName.toLowerCase() === currentSession.displayName.toLowerCase()
+    );
+    if (targetIndex >= 0) {
+      targetAccount = accounts[targetIndex];
+    }
+  }
+
+  // Validação da senha antiga se informada ou se exigida
+  if (oldPass !== undefined && oldPass.trim()) {
+    const cleanOld = oldPass.trim();
+    if (targetAccount && targetAccount.passwordHash && targetAccount.passwordHash !== cleanOld) {
+      throw new Error('A senha atual digitada está incorreta.');
+    }
+  }
+
+  // Atualizar cache local
+  if (targetAccount && targetIndex >= 0) {
+    targetAccount.passwordHash = cleanNew;
+    accounts[targetIndex] = targetAccount;
+    localStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(accounts));
+    localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(targetAccount));
+  } else if (currentSession) {
+    saveAccountToLocalCache(currentSession, cleanNew);
+  }
+
+  // Atualizar no Firebase Auth se conectado
   if (auth.currentUser && isAuthAvailable) {
-    withTimeout(updatePassword(auth.currentUser, newPass), 1500).catch((err) => {
-      console.warn('[Firebase Auth] Erro ao atualizar senha no servidor:', err);
-    });
+    try {
+      await withTimeout(updatePassword(auth.currentUser, cleanNew), 2500);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('requires-recent-login')) {
+        console.warn('[Firebase Auth] Senha salva localmente. Atualização no servidor requer novo login recente.');
+      } else {
+        console.warn('[Firebase Auth] Erro ao sincronizar senha no Firebase:', msg);
+      }
+    }
+  }
+
+  // Atualizar no Firestore se disponível
+  if (isFirestoreAvailable && currentSession?.uid) {
+    try {
+      const userDocRef = doc(db, USERS_COLLECTION, currentSession.uid);
+      await withTimeout(
+        updateDoc(userDocRef, {
+          passwordHash: cleanNew,
+          updatedAt: new Date().toISOString(),
+        }),
+        1500
+      );
+    } catch (err) {
+      console.warn('[Firestore] Erro ao salvar senha no banco de dados:', err);
+    }
   }
 }
 

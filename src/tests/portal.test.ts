@@ -30,12 +30,21 @@ import {
   AUTHORIZED_ADMIN_EMAILS,
   AUTHORIZED_ADMIN_USERNAMES,
   getAuthorizedAdminEmails,
-  addAuthorizedAdminEmail,
   removeAuthorizedAdminEmail,
   getMasterPasskey,
   setMasterPasskey,
   DEFAULT_ADMIN_PASSKEY,
 } from '../utils/adminAuth.ts';
+import {
+  validateGameAccountUsername,
+  validateGameAccountPin,
+  validateCharacterName,
+  canAddGameAccount,
+  canAddCharacterToAccount,
+  validatePasswordChange,
+  MAX_GAME_ACCOUNTS_PER_USER,
+  MAX_CHARACTERS_PER_GAME_ACCOUNT,
+} from '../utils/gameAccountRules.ts';
 
 test('Ranking: sorts characters by score descending by default', () => {
   const ranked = getRankedCharacters();
@@ -390,6 +399,90 @@ test('Admin Access Control: validates master passkey defaults and constraints', 
     /A nova chave mestra deve conter ao menos 6 caracteres/
   );
 });
+
+test('Game Accounts: validates username length, characters and constraints', () => {
+  // Valid usernames
+  assert.equal(validateGameAccountUsername('guerreiro_01').valid, true);
+  assert.equal(validateGameAccountUsername('malaca_adm').valid, true);
+  assert.equal(validateGameAccountUsername('foema99').valid, true);
+
+  // Invalid: empty or null
+  assert.equal(validateGameAccountUsername('').valid, false);
+
+  // Invalid: too short (< 4) or too long (> 16)
+  assert.equal(validateGameAccountUsername('abc').valid, false);
+  assert.equal(validateGameAccountUsername('abcdefghijklmnopq').valid, false);
+
+  // Invalid: spaces or special characters
+  assert.equal(validateGameAccountUsername('guerreiro 01').valid, false);
+  assert.equal(validateGameAccountUsername('guerreiro@01').valid, false);
+});
+
+test('Game Accounts: validates 6-digit numeric security PIN', () => {
+  // Valid PINs
+  assert.equal(validateGameAccountPin('123456').valid, true);
+  assert.equal(validateGameAccountPin('987654').valid, true);
+  assert.equal(validateGameAccountPin('000000').valid, true);
+
+  // Invalid PINs: wrong length, letters or empty
+  assert.equal(validateGameAccountPin('').valid, false);
+  assert.equal(validateGameAccountPin('12345').valid, false);
+  assert.equal(validateGameAccountPin('1234567').valid, false);
+  assert.equal(validateGameAccountPin('abcdef').valid, false);
+  assert.equal(validateGameAccountPin('12345a').valid, false);
+});
+
+test('Game Accounts: validates character name constraints', () => {
+  // Valid character names
+  assert.equal(validateCharacterName('Artemis_TK').valid, true);
+  assert.equal(validateCharacterName('Sir_Galahad').valid, true);
+  assert.equal(validateCharacterName('Foema-Pro').valid, true);
+
+  // Invalid character names
+  assert.equal(validateCharacterName('').valid, false);
+  assert.equal(validateCharacterName('ab').valid, false); // too short (< 3)
+  assert.equal(validateCharacterName('VeryLongNameExceedsLimit').valid, false); // too long (> 14)
+  assert.equal(validateCharacterName('Hero Name').valid, false); // spaces
+  assert.equal(validateCharacterName('Hero#1').valid, false); // special character
+});
+
+test('Game Accounts: enforces slot boundaries (max 5 game accounts, max 4 characters per account)', () => {
+  assert.equal(MAX_GAME_ACCOUNTS_PER_USER, 5);
+  assert.equal(MAX_CHARACTERS_PER_GAME_ACCOUNT, 4);
+
+  // Can add game account
+  assert.equal(canAddGameAccount(0), true);
+  assert.equal(canAddGameAccount(4), true);
+  assert.equal(canAddGameAccount(5), false);
+  assert.equal(canAddGameAccount(6), false);
+
+  // Can add character to account (WYD 4 character slots)
+  assert.equal(canAddCharacterToAccount(0), true);
+  assert.equal(canAddCharacterToAccount(3), true);
+  assert.equal(canAddCharacterToAccount(4), false);
+  assert.equal(canAddCharacterToAccount(5), false);
+});
+
+test('Password Change: enforces minimum length, confirmation and old password verification', () => {
+  // Valid change
+  assert.equal(validatePasswordChange('novaSenha123', 'novaSenha123', 'antiga123', 'antiga123').valid, true);
+
+  // Invalid: new password too short (< 6)
+  assert.equal(validatePasswordChange('123', '123').valid, false);
+  assert.match(validatePasswordChange('123', '123').error || '', /pelo menos 6 caracteres/);
+
+  // Invalid: confirmation does not match
+  assert.equal(validatePasswordChange('novaSenha123', 'outraSenha').valid, false);
+  assert.match(validatePasswordChange('novaSenha123', 'outraSenha').error || '', /não coincide/);
+
+  // Invalid: wrong old password
+  assert.equal(validatePasswordChange('novaSenha123', 'novaSenha123', 'senhaErrada', 'senhaCerta').valid, false);
+  assert.match(
+    validatePasswordChange('novaSenha123', 'novaSenha123', 'senhaErrada', 'senhaCerta').error || '',
+    /senha atual digitada está incorreta/
+  );
+});
+
 
 
 

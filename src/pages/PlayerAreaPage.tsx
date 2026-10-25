@@ -1,7 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MedievalDivider } from '../components/common/MedievalDivider';
-import { useModal } from '../hooks/useModal';
 import {
   User,
   Lock,
@@ -14,18 +13,33 @@ import {
   History,
   Sparkles,
   X,
-  Layers,
   Eye,
   EyeOff,
   CheckCircle2,
   Loader2,
+  Gamepad2,
+  Plus,
+  Trash2,
+  Settings,
+  Edit3,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { updateAccountPassword } from '../services/firebaseService';
 import { initialDemoProfile, mockAccountActivities } from '../data/playerData';
-import type { DemoPlayerProfile, DemoCharacter } from '../types';
+import type { DemoPlayerProfile, DemoCharacter, GameAccount, CharacterClass } from '../types';
 import { sanitizeText, evaluatePasswordStrength } from '../utils/security';
 import { CharacterDetailModal } from '../components/player/CharacterDetailModal';
+import { GameAccountModal } from '../components/player/GameAccountModal';
+import { GameCharacterModal } from '../components/player/GameCharacterModal';
+import {
+  getUserGameAccounts,
+  createGameAccount,
+  updateGameAccount,
+  deleteGameAccount,
+  addCharacterToGameAccount,
+  updateCharacterInGameAccount,
+  deleteCharacterFromGameAccount,
+} from '../services/gameAccountService';
 import { isUserAdmin } from '../services/slidesService';
 
 export const PlayerAreaPage: React.FC = () => {
@@ -46,16 +60,40 @@ export const PlayerAreaPage: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [selectedCharacter, setSelectedCharacter] = useState<DemoCharacter | null>(null);
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formFeedback, setFormFeedback] = useState<string | null>(null);
   const [feedbackType, setFeedbackType] = useState<'error' | 'success'>('error');
+
+  // Gerenciamento de Contas de Jogo e Personagens
+  const [gameAccounts, setGameAccounts] = useState<GameAccount[]>([]);
+  const [selectedCharacter, setSelectedCharacter] = useState<DemoCharacter | null>(null);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [accountToEdit, setAccountToEdit] = useState<GameAccount | null>(null);
+  const [isCharacterModalOpen, setIsCharacterModalOpen] = useState(false);
+  const [characterToEdit, setCharacterToEdit] = useState<DemoCharacter | null>(null);
+  const [targetAccountForChar, setTargetAccountForChar] = useState<GameAccount | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    type: 'account' | 'character';
+    accountId: string;
+    characterId?: string;
+    name: string;
+  } | null>(null);
+
+  // Alteração de Senha
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const { openPendingModal } = useModal();
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [changePassError, setChangePassError] = useState<string | null>(null);
+  const [changePassSuccess, setChangePassSuccess] = useState<string | null>(null);
+  const [isSubmittingChangePass, setIsSubmittingChangePass] = useState(false);
+
   const passwordStrength = useMemo(() => evaluatePasswordStrength(password), [password]);
+  const newPasswordStrength = useMemo(() => evaluatePasswordStrength(newPassword), [newPassword]);
 
   const isUserAuthenticated = Boolean(isAuthenticated || demoSession);
   const isAdmin = isUserAdmin(currentUser, userProfile);
@@ -64,9 +102,33 @@ export const PlayerAreaPage: React.FC = () => {
     userProfile?.displayName || currentUser?.displayName || demoSession?.displayName || 'Guerreiro_Artemis';
   const activeAccountCode =
     userProfile?.accountCode || demoSession?.accountCode || `ART-${(userProfile?.uid || currentUser?.uid || '2026').slice(0, 6).toUpperCase()}`;
-  const activeCharacters =
-    userProfile?.characters || demoSession?.characters || initialDemoProfile.characters;
 
+  // Sincroniza contas de jogo a partir do perfil do usuário ou sessão de demonstração
+  useEffect(() => {
+    if (userProfile) {
+      const accs = getUserGameAccounts(userProfile);
+      setGameAccounts([...accs]);
+    } else if (demoSession) {
+      const demoAcc: GameAccount = {
+        id: 'ga_demo_01',
+        username: 'artemis_demo',
+        numericPin: '123456',
+        status: 'active',
+        createdAt: '25 de Outubro de 2026',
+        characters: demoSession.characters || initialDemoProfile.characters,
+        notes: 'Conta de jogo demonstrativa com personagens do reino.',
+      };
+      setGameAccounts([demoAcc]);
+    } else {
+      setGameAccounts([]);
+    }
+  }, [userProfile, demoSession]);
+
+  const totalCharactersCount = useMemo(() => {
+    return gameAccounts.reduce((sum, ga) => sum + (ga.characters?.length || 0), 0);
+  }, [gameAccounts]);
+
+  // Autenticação (Login, Registro, Recuperação)
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormFeedback(null);
@@ -98,35 +160,41 @@ export const PlayerAreaPage: React.FC = () => {
       const cleanEmail = sanitizeText(email.trim());
       if (!cleanUsername || !cleanEmail || !password.trim() || !confirmPassword.trim()) {
         setFeedbackType('error');
-        setFormFeedback('Todos os campos são obrigatórios para a criação de conta.');
+        setFormFeedback('Preencha todos os campos do formulário de cadastro.');
         return;
       }
-      if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+
+      if (cleanUsername.length < 3) {
         setFeedbackType('error');
-        setFormFeedback('Por favor, insira um formato de e-mail válido.');
+        setFormFeedback('O nome de usuário deve conter no mínimo 3 caracteres.');
         return;
       }
+
       if (password !== confirmPassword) {
         setFeedbackType('error');
-        setFormFeedback('A confirmação de senha não confere com a senha informada.');
+        setFormFeedback('As senhas informadas não coincidem.');
+        return;
+      }
+
+      if (password.length < 6) {
+        setFeedbackType('error');
+        setFormFeedback('A senha deve ter no mínimo 6 caracteres.');
         return;
       }
 
       setIsSubmitting(true);
       try {
-        await register(cleanUsername, cleanEmail, password);
+        await register(cleanEmail, password, cleanUsername);
         setFeedbackType('success');
-        setFormFeedback('Conta registrada com sucesso! Seus personagens iniciais já estão disponíveis.');
-        openPendingModal({
-          title: 'Conta Criada com Sucesso!',
-          featureName: 'Área do Guerreiro Artemis',
-          description: `Parabéns ${cleanUsername}! Sua conta foi cadastrada e seus personagens iniciais foram vinculados com sucesso. Bem-vindo ao universo sagrado de Artemis!`,
-          type: 'auth',
-        });
+        setFormFeedback('Conta criada com sucesso no Artemis Realm!');
+        setUsername('');
+        setPassword('');
+        setConfirmPassword('');
+        setEmail('');
       } catch (err: unknown) {
-        const rawMsg = err instanceof Error ? err.message : 'Erro ao criar conta.';
+        const errorMsg = err instanceof Error ? err.message : 'Falha ao criar conta';
         setFeedbackType('error');
-        setFormFeedback(rawMsg);
+        setFormFeedback(errorMsg);
       } finally {
         setIsSubmitting(false);
       }
@@ -135,30 +203,25 @@ export const PlayerAreaPage: React.FC = () => {
 
     if (activeTab === 'recovery') {
       const cleanEmail = sanitizeText(email.trim());
-      if (!cleanEmail || !cleanEmail.includes('@')) {
+      if (!cleanEmail) {
         setFeedbackType('error');
-        setFormFeedback('Informe um e-mail válido para a recuperação.');
+        setFormFeedback('Informe o e-mail cadastrado para recuperação.');
         return;
       }
-
       setIsSubmitting(true);
       try {
         await resetPassword(cleanEmail);
         setFeedbackType('success');
-        setFormFeedback('E-mail oficial de redefinição de senha enviado com sucesso pelo Firebase Auth!');
-        openPendingModal({
-          title: 'Instruções Enviadas',
-          featureName: 'Recuperação por E-mail (Firebase)',
-          description: `Um e-mail foi disparado para ${cleanEmail} com o link oficial para redefinição de senha.`,
-          type: 'auth',
-        });
+        setFormFeedback('Instruções de redefinição enviadas para o seu e-mail!');
+        setEmail('');
       } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : 'Falha ao enviar e-mail de recuperação.';
+        const errorMsg = err instanceof Error ? err.message : 'Falha ao solicitar recuperação';
         setFeedbackType('error');
         setFormFeedback(errorMsg);
       } finally {
         setIsSubmitting(false);
       }
+      return;
     }
   };
 
@@ -166,9 +229,10 @@ export const PlayerAreaPage: React.FC = () => {
     try {
       await logout();
     } catch {
-      // Ignored
+      // Ignora falha de rede ao deslogar
     }
     setDemoSession(null);
+    setGameAccounts([]);
     setUsername('');
     setPassword('');
     setConfirmPassword('');
@@ -176,26 +240,197 @@ export const PlayerAreaPage: React.FC = () => {
     setFormFeedback(null);
   };
 
+  // Alteração de Senha Mestre
   const handleChangePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPassword.trim()) return;
+    setChangePassError(null);
+    setChangePassSuccess(null);
 
+    const cleanNew = newPassword.trim();
+    const cleanOld = oldPassword.trim();
+
+    if (!cleanOld) {
+      setChangePassError('Por favor, informe sua senha atual.');
+      return;
+    }
+
+    if (!cleanNew || cleanNew.length < 6) {
+      setChangePassError('A nova senha deve possuir ao menos 6 caracteres.');
+      return;
+    }
+
+    if (cleanNew !== confirmNewPassword.trim()) {
+      setChangePassError('A confirmação não coincide com a nova senha.');
+      return;
+    }
+
+    setIsSubmittingChangePass(true);
     try {
-      if (currentUser) {
-        await updateAccountPassword(newPassword);
-      }
-      setIsChangePasswordModalOpen(false);
+      await updateAccountPassword(cleanNew, cleanOld, userProfile);
+      setChangePassSuccess('Senha alterada com sucesso!');
       setOldPassword('');
       setNewPassword('');
-      openPendingModal({
-        title: 'Senha Atualizada',
-        featureName: 'Segurança da Conta',
-        description: 'Sua senha foi redefinida com sucesso no Firebase Auth!',
-        type: 'auth',
-      });
+      setConfirmNewPassword('');
+
+      setTimeout(() => {
+        setIsChangePasswordModalOpen(false);
+        setChangePassSuccess(null);
+      }, 1500);
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : 'Não foi possível alterar a senha diretamente.';
-      alert(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : 'Não foi possível alterar a senha.';
+      setChangePassError(errorMsg);
+    } finally {
+      setIsSubmittingChangePass(false);
+    }
+  };
+
+  // Gerenciamento de Contas de Jogo
+  const handleSaveGameAccount = async (data: {
+    username: string;
+    password?: string;
+    numericPin?: string;
+    notes?: string;
+  }) => {
+    if (demoSession) {
+      if (accountToEdit) {
+        const updated = gameAccounts.map((ga) =>
+          ga.id === accountToEdit.id
+            ? { ...ga, numericPin: data.numericPin || ga.numericPin, notes: data.notes }
+            : ga
+        );
+        setGameAccounts(updated);
+      } else {
+        const newAcc: GameAccount = {
+          id: `ga_demo_${Date.now()}`,
+          username: data.username,
+          numericPin: data.numericPin || '123456',
+          status: 'active',
+          createdAt: new Date().toLocaleDateString('pt-BR'),
+          characters: [],
+          notes: data.notes,
+        };
+        setGameAccounts([...gameAccounts, newAcc]);
+      }
+      return;
+    }
+
+    if (!userProfile) return;
+
+    if (accountToEdit) {
+      const updatedUser = await updateGameAccount(userProfile, accountToEdit.id, {
+        password: data.password,
+        numericPin: data.numericPin,
+        notes: data.notes,
+      });
+      setGameAccounts([...(updatedUser.gameAccounts || [])]);
+    } else {
+      const res = await createGameAccount(userProfile, data);
+      setGameAccounts([...(res.updatedUser.gameAccounts || [])]);
+    }
+  };
+
+  // Gerenciamento de Personagens dentro da Conta de Jogo
+  const handleSaveCharacter = async (data: {
+    name: string;
+    characterClass: CharacterClass;
+    level: number;
+    stage: 'Mortal' | 'Arch' | 'Celestial' | 'Sub-Celestial';
+  }) => {
+    if (!targetAccountForChar) return;
+
+    if (demoSession) {
+      if (characterToEdit) {
+        const updatedAccounts = gameAccounts.map((ga) => {
+          if (ga.id === targetAccountForChar.id) {
+            return {
+              ...ga,
+              characters: ga.characters.map((c) =>
+                c.id === characterToEdit.id ? { ...c, ...data } : c
+              ),
+            };
+          }
+          return ga;
+        });
+        setGameAccounts(updatedAccounts);
+      } else {
+        const newChar: DemoCharacter = {
+          id: `char_${Date.now()}`,
+          name: data.name,
+          characterClass: data.characterClass,
+          level: data.level,
+          stage: data.stage,
+        };
+        const updatedAccounts = gameAccounts.map((ga) => {
+          if (ga.id === targetAccountForChar.id) {
+            return {
+              ...ga,
+              characters: [...ga.characters, newChar],
+            };
+          }
+          return ga;
+        });
+        setGameAccounts(updatedAccounts);
+      }
+      return;
+    }
+
+    if (!userProfile) return;
+
+    if (characterToEdit) {
+      const updatedUser = await updateCharacterInGameAccount(
+        userProfile,
+        targetAccountForChar.id,
+        characterToEdit.id,
+        data
+      );
+      setGameAccounts([...(updatedUser.gameAccounts || [])]);
+    } else {
+      const res = await addCharacterToGameAccount(
+        userProfile,
+        targetAccountForChar.id,
+        data
+      );
+      setGameAccounts([...(res.updatedUser.gameAccounts || [])]);
+    }
+  };
+
+  // Exclusão de Conta ou Personagem
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm) return;
+
+    try {
+      if (deleteConfirm.type === 'account') {
+        if (demoSession) {
+          setGameAccounts(gameAccounts.filter((ga) => ga.id !== deleteConfirm.accountId));
+        } else if (userProfile) {
+          const updatedUser = await deleteGameAccount(userProfile, deleteConfirm.accountId);
+          setGameAccounts([...(updatedUser.gameAccounts || [])]);
+        }
+      } else if (deleteConfirm.type === 'character' && deleteConfirm.characterId) {
+        if (demoSession) {
+          const updated = gameAccounts.map((ga) => {
+            if (ga.id === deleteConfirm.accountId) {
+              return {
+                ...ga,
+                characters: ga.characters.filter((c) => c.id !== deleteConfirm.characterId),
+              };
+            }
+            return ga;
+          });
+          setGameAccounts(updated);
+        } else if (userProfile) {
+          const updatedUser = await deleteCharacterFromGameAccount(
+            userProfile,
+            deleteConfirm.accountId,
+            deleteConfirm.characterId
+          );
+          setGameAccounts([...(updatedUser.gameAccounts || [])]);
+        }
+      }
+      setDeleteConfirm(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha na exclusão.';
+      alert(msg);
     }
   };
 
@@ -218,24 +453,24 @@ export const PlayerAreaPage: React.FC = () => {
         </h1>
         <p className="text-[#b5ac9c] text-sm md:text-base leading-relaxed">
           {isUserAuthenticated
-            ? 'Gerencie sua conta conectada, visualize seus personagens associados no Artemis e consulte seu histórico de jornada.'
+            ? 'Gerencie suas contas de jogo do Artemis Realm, configure personagens vinculados a cada conta e mantenha sua segurança atualizada.'
             : 'Acesse sua conta ou cadastre-se para iniciar sua jornada com segurança no Artemis Realm.'}
         </p>
         <MedievalDivider variant="gold" className="my-6" />
       </div>
 
-      {/* Demonstrative & Firebase Status Banner */}
+      {/* Status da Sessão */}
       <div className="mb-8 p-4 rounded-xl bg-[#0e121a] border border-[#c99738]/30 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <AlertCircle className="w-5 h-5 shrink-0 text-[#c99738]" />
           <p className="text-[#c5bcab]">
-            <strong className="text-[#ffd978]">Segurança & Nuvem:</strong> Autenticação gerenciada via Firebase Auth e perfis sincronizados no Firestore.
+            <strong className="text-[#ffd978]">Segurança Artemis:</strong> Autenticação protegida via Firebase Auth e perfis com suporte a múltiplas contas de jogo.
           </p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-[11px] font-mono text-emerald-300">
-            {currentUser?.email || userProfile?.email ? `Conectado: ${currentUser?.email || userProfile?.email}` : 'Firebase Auth Conectado'}
+            {currentUser?.email || userProfile?.email ? `Conectado: ${currentUser?.email || userProfile?.email}` : 'Pronto para Conexão'}
           </span>
           {!isUserAuthenticated && (
             <button
@@ -250,10 +485,10 @@ export const PlayerAreaPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Authenticated Dashboard View */}
+      {/* Visão Autenticada */}
       {isUserAuthenticated ? (
         <div className="space-y-8">
-          {/* Account Overview Bar */}
+          {/* Barra de Visão Geral da Conta Mestre */}
           <div className="medieval-panel rounded-2xl p-6 sm:p-8 border border-[#c99738]/40 shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 left-0 h-[2px] bg-gradient-to-r from-transparent via-[#ffd978]/60 to-transparent" />
 
@@ -283,22 +518,28 @@ export const PlayerAreaPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Botões de Ação do Usuário - NOTA: Gerenciar Slides APENAS para Administradores */}
               <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full md:w-auto">
-                <Link
-                  to="/admin/slides"
-                  className={`flex-1 sm:flex-initial justify-center px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-md ${
-                    isAdmin
-                      ? 'btn-gold-primary font-bold shadow-[0_0_14px_rgba(201,151,56,0.35)]'
-                      : 'btn-gold-primary'
-                  }`}
-                  title="Acessar painel de gerenciamento de slides e banners"
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>{isAdmin ? 'Painel Administrativo' : 'Gerenciar Slides'}</span>
-                </Link>
+                {isAdmin && (
+                  <Link
+                    to="/admin/slides"
+                    className="flex-1 sm:flex-initial justify-center px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-md btn-gold-primary font-bold shadow-[0_0_14px_rgba(201,151,56,0.35)]"
+                    title="Acessar painel administrativo do servidor"
+                  >
+                    <Shield className="w-3.5 h-3.5" />
+                    <span>Painel Admin</span>
+                  </Link>
+                )}
 
                 <button
-                  onClick={() => setIsChangePasswordModalOpen(true)}
+                  onClick={() => {
+                    setChangePassError(null);
+                    setChangePassSuccess(null);
+                    setOldPassword('');
+                    setNewPassword('');
+                    setConfirmNewPassword('');
+                    setIsChangePasswordModalOpen(true);
+                  }}
                   className="flex-1 sm:flex-initial justify-center btn-medieval-secondary px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <KeyRound className="w-3.5 h-3.5 text-[#ffd978]" />
@@ -316,30 +557,29 @@ export const PlayerAreaPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Account Quick Stats */}
+            {/* Resumo Rápido */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-6">
               <div className="p-3.5 rounded-xl bg-[#0f131c] border border-neutral-800">
-                <span className="text-[11px] text-[#8c8475] uppercase block">Personagens</span>
+                <span className="text-[11px] text-[#8c8475] uppercase block">Contas de Jogo</span>
                 <span className="text-xl font-serif font-bold text-[#ffd978]">
-                  {activeCharacters.length} Registrados
+                  {gameAccounts.length} / 5 Contas
+                </span>
+              </div>
+              <div className="p-3.5 rounded-xl bg-[#0f131c] border border-neutral-800">
+                <span className="text-[11px] text-[#8c8475] uppercase block">Total de Personagens</span>
+                <span className="text-xl font-serif font-bold text-[#f5efe2]">
+                  {totalCharactersCount} Guerreiros
                 </span>
               </div>
               <div className={`p-3.5 rounded-xl ${isAdmin ? 'bg-[#18140c] border border-[#ffd978]/40 shadow-[0_0_12px_rgba(255,217,120,0.12)]' : 'bg-[#0f131c] border border-neutral-800'}`}>
-                <span className="text-[11px] text-[#8c8475] uppercase block">Cargo / Permissão</span>
+                <span className="text-[11px] text-[#8c8475] uppercase block">Cargo / Nível de Acesso</span>
                 <span className={`text-sm font-serif font-bold flex items-center gap-1.5 mt-1 ${isAdmin ? 'text-[#ffd978]' : 'text-[#f5efe2]'}`}>
                   <Shield className={`w-3.5 h-3.5 ${isAdmin ? 'text-[#ffd978]' : 'text-neutral-400'}`} />
                   {isAdmin ? 'Administrador Geral' : 'Guerreiro Artemis'}
                 </span>
               </div>
               <div className="p-3.5 rounded-xl bg-[#0f131c] border border-neutral-800">
-                <span className="text-[11px] text-[#8c8475] uppercase block">Status de Segurança</span>
-                <span className="text-sm font-semibold text-emerald-400 flex items-center gap-1.5 mt-1">
-                  <Shield className="w-3.5 h-3.5" />
-                  {currentUser ? 'Firebase Auth Ativo' : 'Proteção Ativa'}
-                </span>
-              </div>
-              <div className="p-3.5 rounded-xl bg-[#0f131c] border border-neutral-800">
-                <span className="text-[11px] text-[#8c8475] uppercase block">Data de Cadastro</span>
+                <span className="text-[11px] text-[#8c8475] uppercase block">Data de Ingresso</span>
                 <span className="text-sm font-mono text-[#f5efe2] block mt-1">
                   {userProfile?.createdAt || '25 de Outubro de 2026'}
                 </span>
@@ -347,7 +587,7 @@ export const PlayerAreaPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Exclusive Admin Access Banner */}
+          {/* Banner de Administrador (visível apenas para MALACA e administradores autorizados) */}
           {isAdmin && (
             <div className="medieval-panel rounded-2xl p-6 border border-[#ffd978]/50 bg-gradient-to-r from-[#17140b] via-[#0f131d] to-[#17140b] shadow-[0_4px_24px_rgba(201,151,56,0.18)]">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
@@ -357,89 +597,297 @@ export const PlayerAreaPage: React.FC = () => {
                       <Shield className="w-4 h-4" />
                     </span>
                     <h3 className="font-serif font-bold text-lg text-[#ffd978]">
-                      Painel de Acesso do Administrador
+                      Acesso Restrito: Painel de Administração
                     </h3>
                     <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700/50">
-                      Acesso Mestre
+                      Mestre Supremo
                     </span>
                   </div>
                   <p className="text-xs text-[#d6cebe] leading-relaxed">
-                    Conta <strong className="text-[#ffd978]">MALACA</strong> reconhecida com autoridade de <strong>Administrador Geral do Servidor</strong> (<span className="text-[#ffd978]/90 font-mono">malaca7x@gmail.com</span>). Você possui controle total sobre banners, gerenciamento de contas e usuários, chaves de acesso e status do reino.
+                    Você está autenticado como Administrador. O gerenciamento de banners/slides, auditoria de acessos e configurações do servidor ficam centralizados no Painel Administrativo.
                   </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2.5">
                   <Link
-                    to="/admin"
+                    to="/admin/slides"
                     className="btn-gold-primary px-4 py-2.5 rounded-xl text-xs font-serif font-bold flex items-center gap-2 shadow-lg cursor-pointer"
                   >
                     <Shield className="w-4 h-4" />
-                    <span>Painel Administrativo Completo</span>
+                    <span>Abrir Painel Admin</span>
                   </Link>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Characters Section */}
-          <div className="medieval-panel rounded-2xl p-6 sm:p-8 border border-[#c99738]/30">
-            <div className="flex items-center justify-between mb-6 pb-3 border-b border-neutral-800">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-[#ffd978]" />
-                <h3 className="font-serif font-bold text-xl text-[#f5efe2]">
-                  Personagens Vinculados no Firestore
-                </h3>
-              </div>
-              <span className="text-xs text-[#9c9484]">
-                Slots Ativos: {activeCharacters.length}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {activeCharacters.map((char) => (
-                <div
-                  key={char.id}
-                  className="p-5 rounded-xl bg-[#121620] border border-neutral-800 flex flex-col justify-between space-y-4 hover:border-[#c99738]/40 transition-colors"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-semibold text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/40">
-                        {char.stage}
-                      </span>
-                      <span className="text-xs font-mono text-[#ffd978]">
-                        Nv. {char.level}
-                      </span>
-                    </div>
-
-                    <h4 className="font-serif font-bold text-lg text-[#f5efe2] pt-1">
-                      {char.name}
-                    </h4>
-                    <p className="text-xs text-[#c99738]">
-                      Classe: {char.characterClass}
-                    </p>
-                  </div>
-
-                  <div className="pt-3 border-t border-neutral-800/80 flex items-center justify-between text-xs">
-                    <span className="text-[11px] text-neutral-400">Reino Artemis</span>
-                    <button
-                      onClick={() => setSelectedCharacter(char)}
-                      className="text-xs text-[#ffd978] hover:text-[#fff0ba] cursor-pointer font-serif flex items-center gap-1 transition-colors"
-                    >
-                      <span>Ver Atributos</span>
-                      <ChevronRight className="w-3.5 h-3.5 text-[#ffd978]" />
-                    </button>
-                  </div>
+          {/* ========================================================================= */}
+          {/* GERENCIAMENTO DE CONTAS DE JOGO (SUB-CONTAS) E PERSONAGENS INTERNOS       */}
+          {/* ========================================================================= */}
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-neutral-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Gamepad2 className="w-6 h-6 text-[#ffd978]" />
+                  <h3 className="font-serif font-bold text-2xl text-[#f5efe2]">
+                    Contas do Jogo (Artemis Realm)
+                  </h3>
                 </div>
-              ))}
+                <p className="text-xs text-[#9c9484] mt-0.5">
+                  Gerencie seus logins de acesso ao cliente de jogo e os personagens criados em cada conta (até 4 personagens por conta).
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setAccountToEdit(null);
+                  setIsAccountModalOpen(true);
+                }}
+                disabled={gameAccounts.length >= 5}
+                className="btn-gold-primary px-4 py-2.5 rounded-xl text-xs font-serif font-bold flex items-center justify-center gap-2 shadow-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Criar Conta de Jogo</span>
+              </button>
             </div>
+
+            {gameAccounts.length === 0 ? (
+              <div className="medieval-panel rounded-2xl p-10 text-center border border-dashed border-neutral-800">
+                <Gamepad2 className="w-10 h-10 text-neutral-500 mx-auto mb-3" />
+                <h4 className="font-serif font-bold text-base text-[#f5efe2] mb-1">
+                  Nenhuma conta de jogo cadastrada
+                </h4>
+                <p className="text-xs text-neutral-400 max-w-md mx-auto mb-5">
+                  Crie sua primeira conta de jogo para poder criar seus personagens e se conectar ao servidor Artemis.
+                </p>
+                <button
+                  onClick={() => {
+                    setAccountToEdit(null);
+                    setIsAccountModalOpen(true);
+                  }}
+                  className="btn-gold-primary px-4 py-2 rounded-lg text-xs font-serif font-bold cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Criar Minha Primeira Conta</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {gameAccounts.map((account, accIdx) => {
+                  const characters = account.characters || [];
+                  const isAccountFull = characters.length >= 4;
+
+                  return (
+                    <div
+                      key={account.id}
+                      className="medieval-panel rounded-2xl p-6 sm:p-7 border border-[#c99738]/40 shadow-xl relative overflow-hidden"
+                    >
+                      {/* Topo do Card da Conta de Jogo */}
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-xl bg-[#141924] border border-[#c99738]/40 flex items-center justify-center text-[#ffd978] shadow">
+                            <Gamepad2 className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[11px] font-mono text-[#8c8475] uppercase">
+                                Conta #{accIdx + 1}:
+                              </span>
+                              <h4 className="font-serif font-bold text-xl text-[#ffd978] font-mono">
+                                {account.username}
+                              </h4>
+                              <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
+                                {account.status === 'active' ? 'Ativa no Servidor' : account.status}
+                              </span>
+                              <span className="text-[10px] font-mono text-neutral-400 bg-neutral-900 px-2 py-0.5 rounded border border-neutral-800">
+                                PIN: {account.numericPin ? '••••••' : '123456'}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-[#9c9484] mt-0.5">
+                              {account.notes || 'Conta de jogo padrão'} • Criada em {account.createdAt}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Ações da Conta de Jogo */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            onClick={() => {
+                              setTargetAccountForChar(account);
+                              setCharacterToEdit(null);
+                              setIsCharacterModalOpen(true);
+                            }}
+                            disabled={isAccountFull}
+                            className="btn-gold-primary px-3 py-1.5 rounded-lg text-xs font-serif font-bold flex items-center gap-1.5 cursor-pointer shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={isAccountFull ? 'Limite de 4 personagens atingido nesta conta' : 'Criar personagem nesta conta'}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Novo Personagem</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setAccountToEdit(account);
+                              setIsAccountModalOpen(true);
+                            }}
+                            className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                            title="Editar senha, PIN ou anotações da conta"
+                          >
+                            <Settings className="w-4 h-4 text-[#ffd978]" />
+                            <span className="hidden sm:inline">Configurações</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setDeleteConfirm({
+                                type: 'account',
+                                accountId: account.id,
+                                name: account.username,
+                              });
+                            }}
+                            className="p-1.5 rounded-lg bg-red-950/30 hover:bg-red-900/40 text-red-300 border border-red-800/40 text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                            title="Apagar conta de jogo e seus personagens"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span className="hidden sm:inline">Excluir Conta</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Grade de 4 Slots de Personagens no WYD */}
+                      <div className="pt-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-serif font-bold text-[#d6cebe] uppercase tracking-wider flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-[#ffd978]" />
+                            <span>Slots de Personagens da Conta ({characters.length}/4)</span>
+                          </span>
+                          <span className="text-[11px] text-neutral-500">
+                            {4 - characters.length} {4 - characters.length === 1 ? 'slot livre' : 'slots livres'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                          {[0, 1, 2, 3].map((slotIdx) => {
+                            const char = characters[slotIdx];
+
+                            if (char) {
+                              const isTk = char.characterClass === 'TransKnight';
+                              const isFm = char.characterClass === 'Foema';
+                              const isBm = char.characterClass === 'BeastMaster';
+
+                              const badgeColor = isTk
+                                ? 'text-amber-300 bg-amber-950/60 border-amber-800/40'
+                                : isFm
+                                ? 'text-blue-300 bg-blue-950/60 border-blue-800/40'
+                                : isBm
+                                ? 'text-emerald-300 bg-emerald-950/60 border-emerald-800/40'
+                                : 'text-purple-300 bg-purple-950/60 border-purple-800/40';
+
+                              return (
+                                <div
+                                  key={char.id}
+                                  className="p-4 rounded-xl bg-[#121620] border border-neutral-800 hover:border-[#c99738]/50 transition-all flex flex-col justify-between space-y-3 relative group"
+                                >
+                                  <div>
+                                    <div className="flex items-center justify-between text-[11px] mb-1.5">
+                                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${badgeColor}`}>
+                                        {char.stage || 'Mortal'}
+                                      </span>
+                                      <span className="font-mono text-[#ffd978] font-bold">
+                                        Nv. {char.level}
+                                      </span>
+                                    </div>
+
+                                    <h5 className="font-serif font-bold text-base text-[#f5efe2] truncate">
+                                      {char.name}
+                                    </h5>
+                                    <p className="text-xs text-[#c99738] font-medium">
+                                      {char.characterClass}
+                                    </p>
+                                  </div>
+
+                                  <div className="pt-2 border-t border-neutral-800/80 flex items-center justify-between text-xs">
+                                    <button
+                                      onClick={() => setSelectedCharacter(char)}
+                                      className="text-[11px] text-[#ffd978] hover:text-white cursor-pointer font-serif flex items-center gap-1 transition-colors"
+                                      title="Ver atributos e estatísticas de combate"
+                                    >
+                                      <span>Atributos</span>
+                                      <ChevronRight className="w-3 h-3 text-[#ffd978]" />
+                                    </button>
+
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => {
+                                          setTargetAccountForChar(account);
+                                          setCharacterToEdit(char);
+                                          setIsCharacterModalOpen(true);
+                                        }}
+                                        className="p-1 rounded text-neutral-400 hover:text-[#ffd978] hover:bg-neutral-800 transition-colors cursor-pointer"
+                                        title="Editar personagem"
+                                      >
+                                        <Edit3 className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setDeleteConfirm({
+                                            type: 'character',
+                                            accountId: account.id,
+                                            characterId: char.id,
+                                            name: char.name,
+                                          });
+                                        }}
+                                        className="p-1 rounded text-neutral-400 hover:text-red-400 hover:bg-red-950/40 transition-colors cursor-pointer"
+                                        title="Excluir personagem"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            // Slot Vazio
+                            return (
+                              <button
+                                key={`empty_${account.id}_${slotIdx}`}
+                                onClick={() => {
+                                  setTargetAccountForChar(account);
+                                  setCharacterToEdit(null);
+                                  setIsCharacterModalOpen(true);
+                                }}
+                                className="p-4 rounded-xl border border-dashed border-neutral-800 hover:border-[#c99738]/60 bg-[#0f131c]/50 hover:bg-[#141924]/50 transition-all flex flex-col items-center justify-center text-center space-y-2 min-h-[130px] cursor-pointer group"
+                              >
+                                <div className="w-8 h-8 rounded-full bg-neutral-900 group-hover:bg-[#ffd978]/15 border border-neutral-800 group-hover:border-[#c99738]/40 flex items-center justify-center text-neutral-500 group-hover:text-[#ffd978] transition-colors">
+                                  <Plus className="w-4 h-4" />
+                                </div>
+                                <div>
+                                  <span className="text-xs font-serif font-bold text-neutral-400 group-hover:text-[#f5efe2] block">
+                                    Slot #{slotIdx + 1} Vazio
+                                  </span>
+                                  <span className="text-[10px] text-neutral-500 block">
+                                    Clique para criar
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Activities History Section */}
+          {/* Histórico Demonstrativo de Sessões */}
           <div className="medieval-panel rounded-2xl p-6 border border-neutral-800">
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-neutral-800">
               <History className="w-5 h-5 text-[#ffd978]" />
               <h3 className="font-serif font-bold text-lg text-[#f5efe2]">
-                Histórico Demonstrativo de Sessões
+                Histórico de Atividades da Conta
               </h3>
             </div>
 
@@ -449,20 +897,18 @@ export const PlayerAreaPage: React.FC = () => {
                   <tr>
                     <th className="py-2.5 px-4">Data / Hora</th>
                     <th className="py-2.5 px-4">Ação Registrada</th>
-                    <th className="py-2.5 px-4">Endereço IP</th>
-                    <th className="py-2.5 px-4 text-right">Resultado</th>
+                    <th className="py-2.5 px-4">IP / Origem</th>
+                    <th className="py-2.5 px-4">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-800/80">
+                <tbody className="divide-y divide-neutral-800/60 font-sans">
                   {mockAccountActivities.map((act) => (
-                    <tr key={act.id} className="hover:bg-[#161c28]/40">
+                    <tr key={act.id} className="hover:bg-neutral-800/20">
                       <td className="py-2.5 px-4 font-mono text-neutral-400">{act.date}</td>
-                      <td className="py-2.5 px-4 text-[#ede3cc]">{act.event}</td>
-                      <td className="py-2.5 px-4 font-mono text-neutral-500">{act.ipMasked}</td>
-                      <td className="py-2.5 px-4 text-right">
-                        <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-950/60 text-emerald-300 border border-emerald-800/40">
-                          {act.status}
-                        </span>
+                      <td className="py-2.5 px-4 text-[#ede3cc] font-medium">{act.event}</td>
+                      <td className="py-2.5 px-4 font-mono text-neutral-400">{act.ipMasked}</td>
+                      <td className="py-2.5 px-4">
+                        <span className="text-emerald-400 font-semibold">{act.status}</span>
                       </td>
                     </tr>
                   ))}
@@ -472,47 +918,47 @@ export const PlayerAreaPage: React.FC = () => {
           </div>
         </div>
       ) : (
-        /* Unauthenticated Tabs & Form View */
-        <div className="max-w-md mx-auto medieval-panel rounded-2xl p-6 sm:p-8 border border-[#c99738]/40 shadow-2xl relative">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#ffd978]/60 to-transparent" />
-
-          {/* Tab selection */}
-          <div className="flex border-b border-neutral-800 mb-6 text-xs font-serif font-bold">
+        /* Formulário de Acesso e Cadastro (Não Autenticado) */
+        <div className="medieval-panel max-w-md mx-auto rounded-2xl p-6 sm:p-8 border border-[#c99738]/40 shadow-2xl">
+          <div className="flex border-b border-neutral-800 mb-6">
             <button
+              type="button"
               onClick={() => {
                 setActiveTab('login');
                 setFormFeedback(null);
               }}
-              className={`flex-1 py-3 text-center border-b-2 transition-all cursor-pointer ${
+              className={`flex-1 pb-3 text-xs font-serif font-bold tracking-wider cursor-pointer border-b-2 transition-colors ${
                 activeTab === 'login'
                   ? 'border-[#ffd978] text-[#ffd978]'
-                  : 'border-transparent text-[#9e9585] hover:text-[#d6cebe]'
+                  : 'border-transparent text-[#9c9484] hover:text-[#d6cebe]'
               }`}
             >
-              Acessar Conta
+              Conectar
             </button>
             <button
+              type="button"
               onClick={() => {
                 setActiveTab('register');
                 setFormFeedback(null);
               }}
-              className={`flex-1 py-3 text-center border-b-2 transition-all cursor-pointer ${
+              className={`flex-1 pb-3 text-xs font-serif font-bold tracking-wider cursor-pointer border-b-2 transition-colors ${
                 activeTab === 'register'
                   ? 'border-[#ffd978] text-[#ffd978]'
-                  : 'border-transparent text-[#9e9585] hover:text-[#d6cebe]'
+                  : 'border-transparent text-[#9c9484] hover:text-[#d6cebe]'
               }`}
             >
               Criar Conta
             </button>
             <button
+              type="button"
               onClick={() => {
                 setActiveTab('recovery');
                 setFormFeedback(null);
               }}
-              className={`flex-1 py-3 text-center border-b-2 transition-all cursor-pointer ${
+              className={`flex-1 pb-3 text-xs font-serif font-bold tracking-wider cursor-pointer border-b-2 transition-colors ${
                 activeTab === 'recovery'
                   ? 'border-[#ffd978] text-[#ffd978]'
-                  : 'border-transparent text-[#9e9585] hover:text-[#d6cebe]'
+                  : 'border-transparent text-[#9c9484] hover:text-[#d6cebe]'
               }`}
             >
               Recuperar
@@ -521,13 +967,18 @@ export const PlayerAreaPage: React.FC = () => {
 
           {formFeedback && (
             <div
-              className={`mb-4 p-3 rounded-lg text-xs border ${
+              className={`p-3.5 rounded-lg mb-6 text-xs flex items-center gap-2 border ${
                 feedbackType === 'error'
-                  ? 'bg-red-950/30 border-red-800/40 text-red-200'
-                  : 'bg-emerald-950/30 border-emerald-800/40 text-emerald-200'
+                  ? 'bg-red-950/40 text-red-200 border-red-800/50'
+                  : 'bg-emerald-950/40 text-emerald-200 border-emerald-800/50'
               }`}
             >
-              {formFeedback}
+              {feedbackType === 'error' ? (
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+              )}
+              <span>{formFeedback}</span>
             </div>
           )}
 
@@ -535,7 +986,7 @@ export const PlayerAreaPage: React.FC = () => {
             {activeTab !== 'recovery' && (
               <div>
                 <label className="block text-xs font-serif font-bold text-[#d6cebe] uppercase tracking-wider mb-1.5">
-                  Usuário / Login *
+                  {activeTab === 'login' ? 'E-mail ou Usuário *' : 'Nome de Usuário *'}
                 </label>
                 <div className="relative">
                   <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
@@ -544,7 +995,7 @@ export const PlayerAreaPage: React.FC = () => {
                     required
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Seu login no jogo"
+                    placeholder={activeTab === 'login' ? 'seu_usuario ou email' : 'ex: guerreiro_artemis'}
                     className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[#11141c] border border-neutral-800 text-xs text-[#ede3cc] focus:outline-none focus:border-[#c99738] placeholder-neutral-500"
                   />
                 </div>
@@ -613,17 +1064,6 @@ export const PlayerAreaPage: React.FC = () => {
                       <div className={`h-full flex-1 rounded-full ${passwordStrength.color}`} />
                       <div className={`h-full flex-1 rounded-full ${passwordStrength.score >= 1 ? passwordStrength.color : 'bg-neutral-800'}`} />
                       <div className={`h-full flex-1 rounded-full ${passwordStrength.score >= 2 ? passwordStrength.color : 'bg-neutral-800'}`} />
-                    </div>
-                    <div className="flex items-center gap-3 text-[10px] text-neutral-400 pt-0.5">
-                      <span className={passwordStrength.hasMinLength ? 'text-emerald-400' : 'text-neutral-500'}>
-                        ✓ 6+ dígitos
-                      </span>
-                      <span className={passwordStrength.hasLetter ? 'text-emerald-400' : 'text-neutral-500'}>
-                        ✓ Letras
-                      </span>
-                      <span className={passwordStrength.hasNumber ? 'text-emerald-400' : 'text-neutral-500'}>
-                        ✓ Números
-                      </span>
                     </div>
                   </div>
                 )}
@@ -695,59 +1135,190 @@ export const PlayerAreaPage: React.FC = () => {
         </div>
       )}
 
-      {/* Change Password Modal */}
+      {/* ========================================================================= */}
+      {/* MODAL DE ALTERAÇÃO DE SENHA MESTRE (CORRIGIDO E APRIMORADO)              */}
+      {/* ========================================================================= */}
       {isChangePasswordModalOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
           onClick={() => setIsChangePasswordModalOpen(false)}
         >
           <div
-            className="medieval-panel max-w-sm w-full rounded-2xl p-6 border border-[#c99738]/50 shadow-2xl relative max-h-[90vh] overflow-y-auto"
+            className="medieval-panel max-w-md w-full rounded-2xl p-6 border border-[#c99738]/50 shadow-2xl relative my-8"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-4">
-              <h3 className="font-serif font-bold text-base text-[#f5efe2]">
-                Alterar Senha Demonstrativa
-              </h3>
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-[#ffd978]/10 border border-[#c99738]/40 text-[#ffd978]">
+                  <KeyRound className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-[#f5efe2]">
+                    Alterar Senha da Conta
+                  </h3>
+                  <p className="text-[11px] text-neutral-400">
+                    Atualize sua senha mestre de acesso ao Artemis
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setIsChangePasswordModalOpen(false)}
-                className="text-neutral-400 hover:text-white cursor-pointer"
+                className="text-neutral-400 hover:text-white cursor-pointer p-1 rounded-lg hover:bg-neutral-800 transition-colors"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleChangePasswordSubmit} className="space-y-3">
+            {changePassError && (
+              <div className="mb-4 p-3 rounded-lg bg-red-950/40 border border-red-800/50 text-red-300 text-xs flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <span>{changePassError}</span>
+              </div>
+            )}
+
+            {changePassSuccess && (
+              <div className="mb-4 p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/50 text-emerald-300 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{changePassSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleChangePasswordSubmit} className="space-y-4">
               <div>
-                <label className="text-xs text-neutral-400 block mb-1">Senha Atual (Simulada)</label>
-                <input
-                  type="password"
-                  required
-                  value={oldPassword}
-                  onChange={(e) => setOldPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-3 py-2 rounded bg-[#121620] border border-neutral-800 text-xs text-[#ede3cc] focus:outline-none focus:border-[#c99738]"
-                />
+                <label className="block text-xs font-serif font-bold text-[#d6cebe] uppercase tracking-wider mb-1.5">
+                  Senha Atual *
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                  <input
+                    type={showOldPassword ? 'text' : 'password'}
+                    required
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    placeholder="Digite sua senha atual"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-lg bg-[#11141c] border border-neutral-800 text-xs text-[#ede3cc] focus:outline-none focus:border-[#c99738]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowOldPassword(!showOldPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-[#ffd978] transition-colors cursor-pointer"
+                    title={showOldPassword ? 'Ocultar senha' : 'Exibir senha'}
+                  >
+                    {showOldPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <div>
-                <label className="text-xs text-neutral-400 block mb-1">Nova Senha</label>
-                <input
-                  type="password"
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-3 py-2 rounded bg-[#121620] border border-neutral-800 text-xs text-[#ede3cc] focus:outline-none focus:border-[#c99738]"
-                />
+                <label className="block text-xs font-serif font-bold text-[#d6cebe] uppercase tracking-wider mb-1.5">
+                  Nova Senha (Mínimo 6 caracteres) *
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-lg bg-[#11141c] border border-neutral-800 text-xs text-[#ede3cc] focus:outline-none focus:border-[#c99738]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-[#ffd978] transition-colors cursor-pointer"
+                    title={showNewPassword ? 'Ocultar senha' : 'Exibir senha'}
+                  >
+                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                {newPassword.length > 0 && (
+                  <div className="mt-2 p-2 rounded bg-[#0b0e14] border border-neutral-800 text-xs space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-neutral-400">Força da Nova Senha:</span>
+                      <span className={`font-bold ${
+                        newPasswordStrength.label === 'Forte'
+                          ? 'text-emerald-400'
+                          : newPasswordStrength.label === 'Média'
+                          ? 'text-amber-400'
+                          : 'text-red-400'
+                      }`}>
+                        {newPasswordStrength.label}
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden flex gap-1">
+                      <div className={`h-full flex-1 rounded-full ${newPasswordStrength.color}`} />
+                      <div className={`h-full flex-1 rounded-full ${newPasswordStrength.score >= 1 ? newPasswordStrength.color : 'bg-neutral-800'}`} />
+                      <div className={`h-full flex-1 rounded-full ${newPasswordStrength.score >= 2 ? newPasswordStrength.color : 'bg-neutral-800'}`} />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="pt-2">
+              <div>
+                <label className="block text-xs font-serif font-bold text-[#d6cebe] uppercase tracking-wider mb-1.5">
+                  Confirmar Nova Senha *
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                  <input
+                    type={showConfirmNewPassword ? 'text' : 'password'}
+                    required
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-lg bg-[#11141c] border border-neutral-800 text-xs text-[#ede3cc] focus:outline-none focus:border-[#c99738]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-[#ffd978] transition-colors cursor-pointer"
+                    title={showConfirmNewPassword ? 'Ocultar senha' : 'Exibir senha'}
+                  >
+                    {showConfirmNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                {confirmNewPassword.length > 0 && (
+                  <div className="mt-1 flex items-center gap-1.5 text-[11px]">
+                    {newPassword === confirmNewPassword ? (
+                      <span className="text-emerald-400 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Senhas conferem
+                      </span>
+                    ) : (
+                      <span className="text-amber-400 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        Senhas não coincidem
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsChangePasswordModalOpen(false)}
+                  disabled={isSubmittingChangePass}
+                  className="px-4 py-2.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-xs font-medium cursor-pointer transition-colors"
+                >
+                  Cancelar
+                </button>
                 <button
                   type="submit"
-                  className="w-full btn-gold-primary py-2.5 rounded text-xs font-serif font-bold cursor-pointer"
+                  disabled={isSubmittingChangePass}
+                  className="btn-gold-primary px-5 py-2.5 rounded-lg text-xs font-serif font-bold flex items-center gap-2 cursor-pointer shadow-lg disabled:opacity-50"
                 >
-                  Confirmar Alteração
+                  {isSubmittingChangePass ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-[#140e07]" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    'Confirmar Alteração'
+                  )}
                 </button>
               </div>
             </form>
@@ -755,7 +1326,80 @@ export const PlayerAreaPage: React.FC = () => {
         </div>
       )}
 
-      {/* Character Details Modal */}
+      {/* Modal de Criar/Editar Conta de Jogo */}
+      <GameAccountModal
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        accountToEdit={accountToEdit}
+        onSave={handleSaveGameAccount}
+      />
+
+      {/* Modal de Criar/Editar Personagem */}
+      <GameCharacterModal
+        isOpen={isCharacterModalOpen}
+        onClose={() => {
+          setIsCharacterModalOpen(false);
+          setTargetAccountForChar(null);
+          setCharacterToEdit(null);
+        }}
+        targetAccount={targetAccountForChar}
+        characterToEdit={characterToEdit}
+        onSave={handleSaveCharacter}
+      />
+
+      {/* Modal de Confirmação de Exclusão */}
+      {deleteConfirm && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setDeleteConfirm(null)}
+        >
+          <div
+            className="medieval-panel max-w-sm w-full rounded-2xl p-6 border border-red-800/60 shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4 text-red-400">
+              <span className="p-2 rounded-xl bg-red-950/60 border border-red-800/40">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </span>
+              <div>
+                <h4 className="font-serif font-bold text-base text-[#f5efe2]">
+                  {deleteConfirm.type === 'account' ? 'Excluir Conta de Jogo' : 'Excluir Personagem'}
+                </h4>
+                <p className="text-[11px] text-neutral-400">Ação irreversível no servidor</p>
+              </div>
+            </div>
+            <p className="text-xs text-[#d6cebe] mb-4 leading-relaxed">
+              {deleteConfirm.type === 'account' ? (
+                <>
+                  Tem certeza que deseja apagar a conta de jogo <strong className="text-red-300 font-mono">{deleteConfirm.name}</strong> e todos os personagens vinculados a ela?
+                </>
+              ) : (
+                <>
+                  Tem certeza que deseja apagar o personagem <strong className="text-red-300 font-serif">{deleteConfirm.name}</strong>?
+                </>
+              )}
+            </p>
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                className="px-3.5 py-2 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-xs font-medium cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 rounded-lg bg-red-900 hover:bg-red-800 text-white text-xs font-serif font-bold cursor-pointer transition-colors shadow-md"
+              >
+                Confirmar Exclusão
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detalhes de Atributos do Personagem */}
       <CharacterDetailModal
         character={selectedCharacter}
         onClose={() => setSelectedCharacter(null)}
